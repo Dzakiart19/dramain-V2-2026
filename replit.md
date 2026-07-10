@@ -188,6 +188,7 @@ argument provider. Route tanpa provider (`/api/notifications`) tidak terimbas.
    (10/8, 172.16/12, 192.168/16, 169.254/16).
 2. **CDN allowlist** — hanya domain berikut yang diizinkan:
    - `priv-api.anichin.bio`
+   - `*.dramaboxdb.com` (DramaBox — mis: `hwzthls.dramaboxdb.com`)
    - `*.tiktokcdn.com` (PineDrama via TikTok CDN)
    - `*.tiktokv.com`
    - `*.tiktokcdn-us.com`

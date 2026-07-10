@@ -24,6 +24,7 @@ di-rewrite ke client — api_key tidak pernah sampai ke browser.
 ## CDN Allowlist (HLS_ALLOWED_HOSTS di server.js)
 Host yang diizinkan di `/hls-proxy`:
 - `priv-api.anichin.bio`
+- `*.dramaboxdb.com` (DramaBox — mis: `hwzthls.dramaboxdb.com`)
 - `*.tiktokcdn.com`, `*.tiktokv.com`, `*.tiktokcdn-us.com` (PineDrama)
 - `v3.goodshort.com` (GoodShort)
 
