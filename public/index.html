@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DramaStream</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <a href="/" class="logo">🎬 DramaStream</a>
+      <div class="search-bar">
+        <input id="searchInput" type="text" placeholder="Cari drama..." autocomplete="off" />
+        <button id="searchBtn">Cari</button>
+      </div>
+      <div class="provider-select-wrap">
+        <select id="providerFilter">
+          <option value="">Semua Provider</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="notifications" class="notif-bar hidden"></div>
+
+    <section id="searchSection" class="hidden">
+      <h2 id="searchTitle" style="max-width:1200px;margin:24px auto 16px;padding:0 16px;font-size:1.2rem"></h2>
+      <div id="searchResults" class="drama-grid"></div>
+    </section>
+
+    <section id="homeSection">
+      <div class="hero">
+        <h1>Nonton Drama Pendek</h1>
+        <p>Ribuan drama dari DramaBox — tanpa iklan.</p>
+        <div class="hero-search">
+          <input id="heroInput" type="text" placeholder="Cari judul drama..." />
+          <button id="heroBtn">🔍 Cari</button>
+        </div>
+      </div>
+
+      <div id="homeSections"></div>
+
+      <div id="loadMoreWrap" class="hidden" style="text-align:center;padding:24px">
+        <button id="loadMoreBtn">Muat Lebih Banyak</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="overlay" class="overlay hidden">
+    <div class="modal">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

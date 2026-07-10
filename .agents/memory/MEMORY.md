@@ -1,0 +1,2 @@
+- [ShortDramaVid API](shortdramavid-api.md) — endpoint pattern, trailing slash wajib, episodes adalah array object bukan angka
+- [HLS Proxy](hls-proxy.md) — Replit iframe memblok MSE/codec, HLS player butuh proxy backend + fallback "buka tab baru"

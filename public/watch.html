@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nonton — DramaStream</title>
+  <link rel="stylesheet" href="/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+</head>
+<body class="watch-page">
+  <header>
+    <div class="header-inner">
+      <a href="/" class="logo">🎬 DramaStream</a>
+      <div class="back-btn-wrap">
+        <button onclick="history.back()" class="btn-back">← Kembali</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="watch-main">
+    <div class="player-wrap">
+      <div id="playerLoader" class="player-loader">
+        <div class="spinner"></div>
+        <p>Memuat video...</p>
+      </div>
+      <video id="videoPlayer" controls playsinline></video>
+    </div>
+
+    <div class="watch-info">
+      <div id="dramaInfo">
+        <div class="skeleton-title"></div>
+        <div class="skeleton-text"></div>
+      </div>
+
+      <div class="episode-section">
+        <h3>Daftar Episode</h3>
+        <div id="episodeStatus" class="ep-status"></div>
+        <div id="episodeList" class="episode-grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/watch.js"></script>
+</body>
+</html>
