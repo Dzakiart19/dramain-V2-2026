@@ -232,8 +232,13 @@ async function doSearch(q) {
   searchTitle.textContent = `Hasil pencarian untuk "${q}"`;
   searchResults.innerHTML = skeletonCards(10);
 
-  // Push history agar tombol back browser kembali ke home, bukan keluar
-  history.pushState({ view: "search", q }, "", `?q=${encodeURIComponent(q)}`);
+  // Push history HANYA saat masuk ke view search dari home — supaya tombol
+  // back browser cukup sekali untuk kembali ke home. Ganti-ganti kata kunci
+  // di dalam search yang sama pakai replaceState (tidak menambah entry baru),
+  // biar back tidak "nyangkut" di query pencarian sebelumnya.
+  const wasInSearch = history.state?.view === "search";
+  const historyMethod = wasInSearch ? "replaceState" : "pushState";
+  history[historyMethod]({ view: "search", q }, "", `?q=${encodeURIComponent(q)}`);
 
   try {
     const results = await api(`/api/search?q=${encodeURIComponent(q)}&provider=${provider}&platform=${platform}`);
@@ -353,8 +358,23 @@ searchToggle.addEventListener("click", () => {
   searchInput.focus();
 });
 searchClose.addEventListener("click", closeSearch);
+searchBackBtn.addEventListener("click", closeSearch);
 searchInput.addEventListener("keydown", (e) => e.key === "Enter" && doSearch(searchInput.value));
 searchInput.addEventListener("keydown", (e) => e.key === "Escape" && closeSearch());
+
+// Tombol back browser: jika modal detail masih terbuka, tutup modal itu
+// dulu (jangan langsung mundur ke home di belakangnya). Kalau tidak ada
+// modal dan lagi di hasil pencarian, tutup search (kembali ke home)
+// — jangan langsung keluar dari halaman/situs.
+window.addEventListener("popstate", (e) => {
+  if (!overlay.classList.contains("hidden")) {
+    closeModal();
+    return;
+  }
+  if (e.state?.view !== "search" && !searchSection.classList.contains("hidden")) {
+    closeSearch(false);
+  }
+});
 
 modalClose.addEventListener("click", closeModal);
 overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
