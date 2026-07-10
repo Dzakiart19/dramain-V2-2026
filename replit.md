@@ -6,7 +6,7 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 ## Stack
 - **Backend**: Node.js + Express
 - **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js
-- **Video**: HLS (.m3u8) via HLS.js (DramaBox) atau MP4 native (PineDrama)
+- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort) atau MP4 native (PineDrama)
 
 ## Struktur Folder
 
@@ -18,7 +18,8 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 │   ├── fetcher.js         # HTTP client dengan retry, timeout & redact secret
 │   └── providers/
 │       ├── shortdramavid.js  # Adapter DramaBox (upstream: priv-api.anichin.bio, HLS)
-│       └── pinedrama.js      # Adapter PineDrama (upstream: priv-api.anichin.bio, MP4)
+│       ├── pinedrama.js      # Adapter PineDrama (upstream: priv-api.anichin.bio, MP4)
+│       └── goodshort.js      # Adapter GoodShort (upstream: priv-api.anichin.bio, HLS + AES-128)
 ├── public/
 │   ├── index.html         # Halaman home (hero + baris kategori + pencarian)
 │   ├── watch.html         # Halaman player video (auto-play episode berikutnya)
@@ -40,8 +41,8 @@ Proyek ini membedakan dua level:
 
 | Level | Contoh | Dikelola di |
 |-------|--------|-------------|
-| **Platform** | `dramabox`, `pinedrama` | `lib/config.js` → `PLATFORMS` |
-| **Provider** | `dramabox`, `pinedrama` | tiap platform punya array `providers` |
+| **Platform** | `dramabox`, `pinedrama`, `goodshort` | `lib/config.js` → `PLATFORMS` |
+| **Provider** | `dramabox`, `pinedrama`, `goodshort` | tiap platform punya array `providers` |
 
 Satu platform dipetakan ke satu adapter (`adapterPath`). Satu adapter bisa
 melayani beberapa provider jika upstream API-nya mendukung path-segment berbeda.
@@ -72,12 +73,13 @@ untuk PineDrama akan diproses oleh adapter yang salah.
 // provider id → platform id
 providerPlatformMap["dramabox"]  = "dramabox"
 providerPlatformMap["pinedrama"] = "pinedrama"
+providerPlatformMap["goodshort"] = "goodshort"
 ```
 
 Lalu setiap API call membawa platform yang tepat:
 ```js
 /api/trending/pinedrama?platform=pinedrama
-/api/watch/pinedrama/123?ep=1&platform=pinedrama
+/api/watch/goodshort/123?ep=1&platform=goodshort
 ```
 
 `watch.js` membaca `?platform=` dari URL. Jika tidak ada (link lama),
@@ -93,6 +95,7 @@ iterasi seluruhnya dan mengisi satu `<select>` gabungan:
 ```
 [ DramaBox ▾ ]   ← default (jika belum pernah ganti)
 [ PineDrama ]
+[ GoodShort ]
 ```
 
 Saat user ganti pilihan, `currentProvider` dan `currentPlatform` diperbarui,
@@ -114,7 +117,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 
 | Key | Nilai | Dipakai oleh |
 |-----|-------|-------------|
-| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"`) | `home.js` — restore platform saat kembali ke home |
+| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"`) | `home.js` — restore platform saat kembali ke home |
 | `dramain_autoplay` | `"on"` / `"off"` | `watch.js` — ingat preferensi putar otomatis |
 
 ### Tipe stream per platform
@@ -123,6 +126,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 |----------|------|-----------|
 | DramaBox | HLS `.m3u8` | HLS.js (`loadStream`) — manifest di-fetch server-side, api_key tidak pernah ke browser |
 | PineDrama | MP4 TikTok CDN | `<video src>` native (`loadMp4`) — URL tidak mengandung secret |
+| GoodShort | HLS `.m3u8` + AES-128 | HLS.js (`loadStream`) — manifest di-fetch server-side, key embedded sebagai `data:` URI (bukan URL eksternal) |
 
 `watch.js` membaca `data.streamType` dari `/api/watch`:
 - `streamType === "mp4"` → `loadMp4(data.videoUrl)` (URL langsung)
@@ -130,12 +134,13 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 
 ## Platform yang Aktif
 
-| Platform | Adapter | Default | Upstream |
-|----------|---------|---------|----------|
-| DramaBox | `shortdramavid.js` | ✅ Ya | `priv-api.anichin.bio` |
-| PineDrama | `pinedrama.js` | — | `priv-api.anichin.bio` |
+| Platform | Adapter | Default | Upstream | Stream |
+|----------|---------|---------|----------|--------|
+| DramaBox | `shortdramavid.js` | ✅ Ya | `priv-api.anichin.bio` | HLS |
+| PineDrama | `pinedrama.js` | — | `priv-api.anichin.bio` | MP4 |
+| GoodShort | `goodshort.js` | — | `priv-api.anichin.bio` | HLS + AES-128 |
 
-Keduanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
+Ketiganya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 
 ## API Endpoints Backend
 
@@ -186,6 +191,7 @@ argument provider. Route tanpa provider (`/api/notifications`) tidak terimbas.
    - `*.tiktokcdn.com` (PineDrama via TikTok CDN)
    - `*.tiktokv.com`
    - `*.tiktokcdn-us.com`
+   - `v3.goodshort.com` (GoodShort segmen HLS)
 
 Jika platform baru memakai CDN berbeda, tambahkan hostname-nya ke konstanta
 `HLS_ALLOWED_HOSTS` atau kondisi `isAllowedProxyHost()` di `server.js`.
@@ -238,6 +244,8 @@ Ringkas:
    secara global** (tidak boleh sama dengan provider platform lain).
 4. Tambah CDN hostname platform baru ke `HLS_ALLOWED_HOSTS` / `isAllowedProxyHost()`
    di `server.js` — jika tidak ditambahkan, segmen video tidak bisa diproxy.
+   Jika `hlsManifestUrl` adapter bersifat async (butuh fetch upstream sebelum mengembalikan URL),
+   pastikan dipanggil dengan `await` — ini sudah dilakukan di `server.js` secara global.
 5. Restart server — dropdown di UI otomatis memunculkan platform baru.
 6. Smoke-test tiap endpoint dengan `?platform={id-baru}`.
 
