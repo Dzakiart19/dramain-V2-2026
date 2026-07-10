@@ -39,17 +39,20 @@ lain.
 
 ## Cara Menambah Platform Baru
 
-1. Buat file `lib/providers/{nama-platform}.js`
-   — Ekspor fungsi wajib (dipakai langsung oleh route di `server.js`):
-     `search`, `detail`, `stream`, `browse`, `trending`, `latest`, `vip`,
-     `dubindo`, `foryou`, `languages`, `allepisode`, `subtitles`,
-     `hlsManifestUrl`, `notifications`
-   — Kalau sebuah fungsi tidak relevan untuk platform baru, tetap ekspor
-     versi yang mengembalikan array/objek kosong (atau, untuk
-     `hlsManifestUrl`, fungsi yang melempar error jelas) agar route
-     terkait tidak crash
-2. Tambah entry di `lib/config.js` → `PLATFORMS`
-3. Restart server — selesai, tidak perlu ubah file lain.
+Panduan lengkap & konsisten ada di skill `add-streaming-platform`
+(`.agents/skills/add-streaming-platform/SKILL.md`) — baca itu dulu sebelum
+menambah platform baru. Ringkas:
+
+1. Investigasi API upstream baru langsung (curl), jangan tebak dari dokumen.
+2. Buat `lib/providers/{nama-platform}.js` dengan kontrak fungsi yang persis
+   sama seperti `lib/providers/shortdramavid.js` (lihat daftar fungsi wajib
+   di skill tersebut) — kalau sebuah fitur tidak ada di API baru, tetap
+   ekspor versi kosong/aman agar route generik di `server.js` tidak crash.
+3. Tambah entry di `lib/config.js` → `PLATFORMS`.
+4. Restart server dan smoke-test tiap endpoint dengan platform baru.
+
+Frontend (`public/`) dan route di `server.js` sudah platform-agnostic —
+tidak perlu diubah untuk menambah platform baru.
 
 ## API Endpoints Backend
 
