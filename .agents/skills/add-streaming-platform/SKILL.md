@@ -52,6 +52,34 @@ ia bekerja selama provider id ada di `providerPlatformMap` yang dibangun dari
 mendeteksi bahwa saved provider tidak ada di map dan fallback ke default
 secara graceful.
 
+### Navigasi & browser history (sudah platform-agnostic — jangan diduplikasi)
+
+`home.js` menangani semua `history.pushState`/`replaceState`/`popstate` untuk
+tiga view: hasil pencarian, modal detail drama, dan episode di `watch.js`.
+Logika ini **generik di level view, bukan di level platform/provider** — saat
+menambah platform baru, JANGAN tambahkan penanganan history baru di tempat
+lain. Semua sudah otomatis berlaku untuk provider apapun karena dipicu oleh
+DOM event (buka search, buka modal, ganti episode), bukan oleh id platform.
+
+Ringkasan kontrak yang harus tetap konsisten:
+
+| Aksi | Method | Kenapa |
+|------|--------|--------|
+| Submit search pertama kali | `pushState({view:"search"})` | Satu entry baru agar back kembali ke home |
+| Ganti kata kunci saat masih di search | `replaceState` | Tidak menumpuk entry per keystroke/submit |
+| Tutup search (tombol X / back-btn / logo) | `pushState({view:"home"})` ke `/` | Konsisten dengan browser back |
+| Buka modal detail drama | `pushState({view:"modal"})` | Supaya back menutup modal dulu, bukan lompat ke home/search |
+| Tutup modal (tombol X / klik luar / Escape) | `history.back()` lewat `requestCloseModal()` | Modal ditutup nyata oleh `popstate`, bukan langsung manipulasi DOM — menjaga hitungan history tetap sinkron dengan tombol back |
+| Ganti episode di halaman watch | `replaceState` | Sengaja tidak push — back di halaman watch harus keluar halaman, bukan mundur episode-per-episode |
+
+`window.addEventListener("popstate", ...)` di `home.js` adalah satu-satunya
+tempat yang benar-benar menutup modal/search saat tombol back browser
+ditekan — urutan cek di dalamnya: modal dulu, baru search. Jika platform baru
+menambah view/overlay baru (bukan sekadar list drama), tambahkan cabang di
+listener `popstate` ini dengan pola yang sama (push saat buka, `history.back()`
+saat tutup lewat UI, baru benar-benar tutup DOM di handler `popstate`) —
+jangan langsung memanggil fungsi "tutup" dari tombol UI.
+
 ### Tipe stream
 
 Ada dua tipe video yang sudah didukung frontend:
@@ -267,6 +295,7 @@ Pastikan:
 | `public/` (semua frontend) | Platform-agnostic — dropdown diisi dari `/api/config`, `?platform=` sudah dikirim otomatis, `PLATFORM` fallback pakai provider id |
 | `server.js` routes | Sudah generic via `getAdapter(platform)` — tambah route baru hanya jika platform punya fitur benar-benar baru |
 | `lib/fetcher.js` | HTTP client shared dengan retry/timeout/redaction — reuse, jangan buat wrapper baru |
+| Push history (`home.js` — search/modal/watch episode) | Sudah generic per-view, dipicu DOM event bukan platform id — otomatis berlaku untuk platform baru tanpa perubahan apapun |
 
 **Yang wajib diubah di `server.js` untuk platform HLS baru:**
 Tambah CDN hostname ke `HLS_ALLOWED_HOSTS` / `isAllowedProxyHost()`.

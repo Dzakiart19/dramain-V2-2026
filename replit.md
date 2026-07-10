@@ -203,6 +203,28 @@ Tidak ada nama platform yang di-hardcode lagi.
 `homeLoading` flag mencegah `loadHome()` berjalan dua kali bersamaan jika
 user cepat mengganti provider sebelum load sebelumnya selesai.
 
+### Push history / tombol back browser (`home.js`)
+
+Navigasi SPA (search, modal detail drama) dikelola lewat `history` API agar
+tombol back browser tidak keluar situs secara tidak sengaja. Ini generik per
+**view**, bukan per platform — otomatis berlaku untuk platform apapun tanpa
+perubahan tambahan.
+
+| Aksi | Method | Kenapa |
+|------|--------|--------|
+| Submit search pertama kali | `pushState({view:"search"})` | Satu entry baru agar back kembali ke home |
+| Ganti kata kunci saat masih di search | `replaceState` | Tidak menumpuk entry per submit |
+| Tutup search (tombol X / back-btn / logo) | `pushState({view:"home"})` ke `/` | Konsisten dengan browser back |
+| Buka modal detail drama | `pushState({view:"modal"})` | Back menutup modal dulu, bukan lompat ke home/search |
+| Tutup modal (tombol X / klik luar / Escape) | `history.back()` via `requestCloseModal()` | Modal ditutup nyata oleh listener `popstate`, bukan langsung manipulasi DOM — hitungan history tetap sinkron dengan tombol back |
+| Ganti episode di halaman watch (`watch.js`) | `replaceState` | Sengaja tidak push — back di halaman watch harus keluar halaman, bukan mundur episode-per-episode |
+
+Satu listener `window.addEventListener("popstate", ...)` di `home.js` yang
+benar-benar menutup modal/search saat back ditekan (urutan cek: modal dulu,
+baru search). Kalau nanti ada view/overlay baru, tambahkan cabang di listener
+ini dengan pola yang sama — jangan panggil fungsi "tutup" langsung dari
+tombol UI, selalu lewat `pushState` saat buka + `history.back()` saat tutup.
+
 ## Cara Menambah Platform Baru
 
 Baca skill `add-streaming-platform` (`.agents/skills/add-streaming-platform/SKILL.md`)
