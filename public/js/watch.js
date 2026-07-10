@@ -235,6 +235,55 @@ video.addEventListener("ended", () => {
 
 autoplayToggle.addEventListener("click", () => setAutoplay(!autoplayEnabled));
 
+/* ─── Meta tag helpers ────────────────────────────────────── */
+
+/** Update <meta name="..."> atau <meta property="..."> secara aman. */
+function setMeta(nameOrProp, content) {
+  if (!content) return;
+  let el = document.querySelector(
+    `meta[name="${nameOrProp}"], meta[property="${nameOrProp}"]`
+  );
+  if (!el) {
+    el = document.createElement("meta");
+    const isOg = nameOrProp.startsWith("og:") || nameOrProp.startsWith("twitter:");
+    el.setAttribute(isOg ? "property" : "name", nameOrProp);
+    document.head.appendChild(el);
+  }
+  el.setAttribute("content", content);
+}
+
+/**
+ * Perbarui semua meta tag secara dinamis saat drama berhasil dimuat.
+ * Berguna agar tautan yang dibagikan menampilkan judul + cover yang benar.
+ */
+function updateMetaTags(drama) {
+  const BASE = "https://dramain-aja.web.app";
+  const title = `${drama.title} — Dramain Aja`;
+  const desc  = drama.description
+    ? drama.description.slice(0, 155) + (drama.description.length > 155 ? "…" : "")
+    : `Nonton ${drama.title} — ${drama.totalEpisodes || "?"} episode gratis di Dramain Aja.`;
+  const image = drama.cover || `${BASE}/og-image.jpg`;
+  const url   = location.href;
+
+  document.title = title;
+
+  // Primary
+  setMeta("description", desc);
+
+  // Open Graph
+  setMeta("og:title",       title);
+  setMeta("og:description", desc);
+  setMeta("og:image",       image);
+  setMeta("og:image:alt",   drama.title);
+  setMeta("og:url",         url);
+
+  // Twitter / X
+  setMeta("twitter:title",       title);
+  setMeta("twitter:description", desc);
+  setMeta("twitter:image",       image);
+  setMeta("twitter:image:alt",   drama.title);
+}
+
 /* ─── Init ────────────────────────────────────────────────── */
 async function init() {
   setAutoplay(autoplayEnabled);
@@ -248,7 +297,8 @@ async function init() {
 
   try {
     const d = await api(`/api/drama/${PROVIDER}/${ID}?platform=${PLATFORM}`);
-    document.title = `${d.title} — Dramain Aja`;
+
+    updateMetaTags(d);
 
     dramaInfo.innerHTML = `
       <div class="drama-badges">
