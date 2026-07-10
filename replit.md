@@ -91,15 +91,31 @@ dengan platform agar reload/share link tetap benar.
 iterasi seluruhnya dan mengisi satu `<select>` gabungan:
 
 ```
-[ DramaBox ▾ ]   ← default
+[ DramaBox ▾ ]   ← default (jika belum pernah ganti)
 [ PineDrama ]
 ```
 
 Saat user ganti pilihan, `currentProvider` dan `currentPlatform` diperbarui,
-dan seluruh halaman di-reload dengan data platform baru.
+lalu **disimpan ke `localStorage`** (`dramain_provider`). Saat halaman dibuka
+lagi (misalnya setelah kembali dari halaman watch), pilihan terakhir dipulihkan
+dari `localStorage` — user tidak balik ke DramaBox secara paksa.
+
+Urutan restore di `init()`:
+1. Baca `dramain_provider` dari `localStorage`.
+2. Validasi bahwa value itu ada di `providerPlatformMap` (antisipasi platform
+   dihapus dari config di masa depan).
+3. Jika valid → pakai, set `providerFilter.value` sesuai.
+4. Jika tidak valid / kosong → fallback ke `config[0].providers[0]`.
 
 Di mobile, dropdown ini **terlihat** (tidak disembunyikan). Ukuran font
 diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
+
+### Persistensi state di localStorage
+
+| Key | Nilai | Dipakai oleh |
+|-----|-------|-------------|
+| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"`) | `home.js` — restore platform saat kembali ke home |
+| `dramain_autoplay` | `"on"` / `"off"` | `watch.js` — ingat preferensi putar otomatis |
 
 ### Tipe stream per platform
 

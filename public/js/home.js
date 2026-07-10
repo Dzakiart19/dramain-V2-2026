@@ -57,8 +57,12 @@ async function init() {
       });
     });
 
-    currentProvider = config[0].providers[0].id;
+    // Restore pilihan terakhir user dari localStorage, fallback ke default
+    const saved = localStorage.getItem("dramain_provider");
+    const defaultProvider = config[0].providers[0].id;
+    currentProvider = (saved && providerPlatformMap[saved]) ? saved : defaultProvider;
     currentPlatform = providerPlatformMap[currentProvider];
+    providerFilter.value = currentProvider;
     loadNotifications();
     loadHome(currentProvider, currentPlatform);
   } catch (e) {
@@ -328,6 +332,7 @@ providerFilter.addEventListener("change", () => {
   if (!selected) return;
   currentProvider = selected;
   currentPlatform = providerPlatformMap[selected] || currentPlatform;
+  localStorage.setItem("dramain_provider", currentProvider);
   foryouPage = 1;
   loadHome(currentProvider, currentPlatform);
 });

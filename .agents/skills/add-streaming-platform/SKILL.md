@@ -39,6 +39,19 @@ Tanpa itu, server jatuh ke `DEFAULT_PLATFORM`. Frontend (`home.js`,
 `watch.js`) sudah selalu mengirim parameter ini — pastikan semua link dan URL
 yang dibangun di kode ikut menyertakannya.
 
+### Persistensi platform (localStorage)
+
+`home.js` menyimpan provider terakhir dipilih user ke `localStorage` dengan
+key `dramain_provider`. Saat `init()` berjalan (termasuk saat user kembali
+dari halaman watch), nilai ini dibaca dan di-restore — user tidak direset ke
+platform default secara paksa.
+
+Saat platform baru ditambahkan, tidak ada yang perlu diubah di logika ini —
+ia bekerja selama provider id ada di `providerPlatformMap` yang dibangun dari
+`/api/config`. Jika sebuah platform dihapus dari config, `init()` akan
+mendeteksi bahwa saved provider tidak ada di map dan fallback ke default
+secara graceful.
+
 ### Tipe stream
 
 Ada dua tipe video yang sudah didukung frontend:
