@@ -25,10 +25,17 @@ function getAdapter(platform = DEFAULT_PLATFORM) {
 function ok(res, data) {
   res.json({ ok: true, data });
 }
+// Buang query string sensitif (api_key, token, dst) dari pesan error
+// sebelum diteruskan ke client — pesan error upstream bisa saja memuat
+// URL asli lengkap dengan secret.
+function redactSecrets(msg) {
+  return String(msg).replace(/([?&](?:api_key|token|secret|password)=)[^&\s"]+/gi, "$1***");
+}
+
 function fail(res, err, status = 500) {
-  const msg = err?.message ?? String(err);
-  console.error("[API Error]", msg);
-  res.status(status).json({ ok: false, error: msg });
+  const rawMsg = err?.message ?? String(err);
+  console.error("[API Error]", rawMsg);
+  res.status(status).json({ ok: false, error: redactSecrets(rawMsg) });
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────
@@ -70,15 +77,89 @@ app.get("/api/drama/:provider/:id", async (req, res) => {
 });
 
 // GET /api/watch/:provider/:id?ep=N&platform=PLATFORM
+// adapter.stream() sudah mengembalikan videoUrl berupa route internal
+// (/api/hls-stream/...) — api_key upstream tidak pernah sampai ke client.
 app.get("/api/watch/:provider/:id", async (req, res) => {
   const { provider, id } = req.params;
   const { ep = 1, platform = DEFAULT_PLATFORM } = req.query;
   try {
     const adapter = getAdapter(platform);
     const data = await adapter.stream(provider, id, Number(ep));
-    if (data.videoUrl) {
-      data.videoUrl = `/hls-proxy?url=${encodeURIComponent(data.videoUrl)}`;
+    ok(res, data);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// GET /api/hls-stream/:provider/:id?ep=N&platform=PLATFORM
+// Fetch manifest .m3u8 asli dari upstream (butuh api_key, server-side saja),
+// lalu rewrite setiap baris URL segmen ke /hls-proxy?url=... (segmen tidak
+// butuh api_key, jadi aman diteruskan ke client).
+app.get("/api/hls-stream/:provider/:id", async (req, res) => {
+  const { provider, id } = req.params;
+  const { ep = 1, platform = DEFAULT_PLATFORM } = req.query;
+  try {
+    const adapter = getAdapter(platform);
+    const manifestUrl = adapter.hlsManifestUrl(provider, id, Number(ep));
+
+    const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36";
+    const upstream = await fetch(manifestUrl, { headers: { "User-Agent": UA } });
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).send(`Upstream error: ${upstream.status}`);
     }
+
+    const text = await upstream.text();
+    const rewritten = text.split("\n").map((line) => {
+      line = line.trim();
+      if (line.startsWith("http://") || line.startsWith("https://")) {
+        return `/hls-proxy?url=${encodeURIComponent(line)}`;
+      }
+      return line;
+    }).join("\n");
+
+    res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(rewritten);
+  } catch (err) {
+    console.error("[HLS Stream Error]", err.message);
+    res.status(500).send("Gagal memuat manifest: " + redactSecrets(err.message ?? String(err)));
+  }
+});
+
+// GET /api/languages/:provider?platform=PLATFORM
+app.get("/api/languages/:provider", async (req, res) => {
+  const { provider } = req.params;
+  const { platform = DEFAULT_PLATFORM } = req.query;
+  try {
+    const adapter = getAdapter(platform);
+    const data = await adapter.languages(provider);
+    ok(res, data);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// GET /api/allepisode/:provider/:id?platform=PLATFORM
+app.get("/api/allepisode/:provider/:id", async (req, res) => {
+  const { provider, id } = req.params;
+  const { platform = DEFAULT_PLATFORM } = req.query;
+  try {
+    const adapter = getAdapter(platform);
+    const data = await adapter.allepisode(provider, id);
+    ok(res, data);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// GET /api/subtitles/:provider/:id?ep=N&platform=PLATFORM
+app.get("/api/subtitles/:provider/:id", async (req, res) => {
+  const { provider, id } = req.params;
+  const { ep = 1, platform = DEFAULT_PLATFORM } = req.query;
+  try {
+    const adapter = getAdapter(platform);
+    const data = await adapter.subtitles(provider, id, Number(ep));
     ok(res, data);
   } catch (err) {
     fail(res, err);
@@ -100,7 +181,7 @@ app.get("/hls-proxy", async (req, res) => {
 
   try {
     const upstream = await fetch(target.toString(), {
-      headers: { "User-Agent": UA, "Referer": "https://www.shortdramavid.xyz/" },
+      headers: { "User-Agent": UA },
     });
 
     if (!upstream.ok) {
@@ -135,7 +216,7 @@ app.get("/hls-proxy", async (req, res) => {
     upstream.body.pipe(res);
   } catch (err) {
     console.error("[HLS Proxy Error]", err.message);
-    res.status(500).send("Proxy error: " + err.message);
+    res.status(500).send("Proxy error: " + redactSecrets(err.message ?? String(err)));
   }
 });
 

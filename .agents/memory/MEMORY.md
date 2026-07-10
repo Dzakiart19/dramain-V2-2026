@@ -1,2 +1,3 @@
 - [ShortDramaVid API](shortdramavid-api.md) — endpoint pattern, trailing slash wajib, episodes adalah array object bukan angka
 - [HLS Proxy](hls-proxy.md) — Replit iframe memblok MSE/codec, HLS player butuh proxy backend + fallback "buka tab baru"
+- [Anichin API + key redaction](anichin-api-key-redaction.md) — real DramaBox upstream is priv-api.anichin.bio with api_key param; never let error strings echo full URLs to clients.
