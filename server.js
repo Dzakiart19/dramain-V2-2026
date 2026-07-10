@@ -130,19 +130,30 @@ app.get("/api/hls-stream/:provider/:id", async (req, res) => {
     const manifestUrl = await adapter.hlsManifestUrl(provider, id, Number(ep));
 
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36";
-    const upstream = await fetch(manifestUrl, { headers: { "User-Agent": UA } });
+    // fetchWithValidatedRedirects: manifestUrl (priv-api.anichin.bio, host
+    // pertama yang selalu diizinkan) bisa meredirect ke CDN (mis. ReelShort →
+    // v-mps.crazymaplestudios.com) — setiap hop divalidasi ulang terhadap
+    // SSRF guard + allowlist, bukan cuma host awal.
+    const upstream = await fetchWithValidatedRedirects(manifestUrl, { headers: { "User-Agent": UA } });
 
     if (!upstream.ok) {
       return res.status(upstream.status).send(`Upstream error: ${upstream.status}`);
     }
 
     const text = await upstream.text();
+    // upstream.url = URL akhir setelah redirect (mis. ReelShort me-302 dari
+    // /api/reelshort/hls ke domain CDN v-mps.crazymaplestudios.com). Dipakai
+    // sebagai base untuk resolve baris segmen yang RELATIF (ReelShort) — beda
+    // dari ShortMax/GoodShort yang segmennya sudah URL absolut.
+    const manifestBase = upstream.url || manifestUrl;
     const rewritten = text.split("\n").map((line) => {
       line = line.trim();
-      if (line.startsWith("http://") || line.startsWith("https://")) {
-        return `/hls-proxy?url=${encodeURIComponent(line)}`;
+      if (!line || line.startsWith("#")) return line;
+      let absolute = line;
+      if (!line.startsWith("http://") && !line.startsWith("https://")) {
+        try { absolute = new URL(line, manifestBase).toString(); } catch { return line; }
       }
-      return line;
+      return `/hls-proxy?url=${encodeURIComponent(absolute)}`;
     }).join("\n");
 
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
@@ -150,7 +161,7 @@ app.get("/api/hls-stream/:provider/:id", async (req, res) => {
     res.send(rewritten);
   } catch (err) {
     console.error("[HLS Stream Error]", err.message);
-    res.status(500).send("Gagal memuat manifest: " + redactSecrets(err.message ?? String(err)));
+    res.status(err.statusCode || 500).send("Gagal memuat manifest: " + redactSecrets(err.message ?? String(err)));
   }
 });
 
@@ -200,6 +211,7 @@ const HLS_ALLOWED_HOSTS = new Set([
   // CDN TikTok (PineDrama) — semua sub-domain *.tiktokcdn.com & *.tiktokv.com
   "v3.goodshort.com",              // CDN segmen HLS GoodShort
   "akamai-static.shorttv.live",    // CDN segmen HLS ShortMax
+  "v-mps.crazymaplestudios.com",   // CDN segmen HLS ReelShort
 ]);
 
 function isAllowedProxyHost(hostname) {
@@ -230,6 +242,43 @@ function isPrivateHost(hostname) {
   return false;
 }
 
+// Validasi satu URL target terhadap proteksi SSRF + allowlist CDN.
+// Dipakai untuk validasi awal DAN untuk revalidasi setiap hop redirect
+// (lihat fetchWithValidatedRedirects) — tanpa ini, host allowlist bisa
+// dibypass jika sebuah host yang diizinkan meredirect ke host lain.
+function validateProxyTarget(target) {
+  if (target.protocol !== "https:" && target.protocol !== "http:") {
+    return "Protokol tidak diizinkan";
+  }
+  if (isPrivateHost(target.hostname)) {
+    return "Host tidak diizinkan";
+  }
+  if (!isAllowedProxyHost(target.hostname)) {
+    console.warn("[HLS Proxy] Host ditolak:", target.hostname);
+    return "Host tidak diizinkan";
+  }
+  return null;
+}
+
+// fetch() dengan redirect:'manual' + validasi ulang SSRF/allowlist di SETIAP
+// hop redirect. Mencegah host yang lolos allowlist awal (mis. CDN resmi)
+// meredirect ke host privat/asing yang seharusnya diblokir.
+async function fetchWithValidatedRedirects(startUrl, options = {}, maxRedirects = 5) {
+  let current = startUrl;
+  for (let i = 0; i <= maxRedirects; i++) {
+    const target = new URL(current);
+    const err = validateProxyTarget(target);
+    if (err) throw Object.assign(new Error(err), { statusCode: 403 });
+
+    const res = await fetch(target.toString(), { ...options, redirect: "manual" });
+    const isRedirect = res.status >= 300 && res.status < 400 && res.headers.get("location");
+    if (!isRedirect) return res;
+
+    current = new URL(res.headers.get("location"), target).toString();
+  }
+  throw Object.assign(new Error("Terlalu banyak redirect"), { statusCode: 502 });
+}
+
 // GET /hls-proxy?url=ENCODED_URL — relay HLS manifest & segments via server
 // Menghindari CORS block browser saat fetch dari domain eksternal
 app.get("/hls-proxy", async (req, res) => {
@@ -241,26 +290,15 @@ app.get("/hls-proxy", async (req, res) => {
     return res.status(400).send("URL tidak valid");
   }
 
-  // Hanya izinkan http/https
-  if (target.protocol !== "https:" && target.protocol !== "http:") {
-    return res.status(400).send("Protokol tidak diizinkan");
-  }
-
-  // Blokir akses ke jaringan internal (SSRF)
-  if (isPrivateHost(target.hostname)) {
-    return res.status(403).send("Host tidak diizinkan");
-  }
-
-  // Allowlist CDN — hanya domain yang dikenal boleh diakses
-  if (!isAllowedProxyHost(target.hostname)) {
-    console.warn("[HLS Proxy] Host ditolak:", target.hostname);
-    return res.status(403).send("Host tidak diizinkan");
+  const validationError = validateProxyTarget(target);
+  if (validationError) {
+    return res.status(403).send(validationError);
   }
 
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36";
 
   try {
-    const upstream = await fetch(target.toString(), {
+    const upstream = await fetchWithValidatedRedirects(target.toString(), {
       headers: { "User-Agent": UA },
     });
 
@@ -277,13 +315,30 @@ app.get("/hls-proxy", async (req, res) => {
     if (isM3U8) {
       res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
       const text = await upstream.text();
-      // Rewrite setiap baris URL absolut (http/https) → /hls-proxy?url=...
-      const rewritten = text.split("\n").map((line) => {
-        line = line.trim();
-        if (line.startsWith("http://") || line.startsWith("https://")) {
-          return `/hls-proxy?url=${encodeURIComponent(line)}`;
+      // upstream.url = URL akhir setelah redirect. Sama seperti route
+      // /api/hls-stream: rewrite baris URI (segmen ATAU child playlist di
+      // master playlist) yang relatif dengan resolve terhadap base ini dulu,
+      // supaya nested/master playlist (mis. ReelShort atau provider masa
+      // depan yang pakai path relatif) tetap ter-proxy dengan benar.
+      const manifestBase = upstream.url || target.toString();
+      const rewriteUri = (uri) => {
+        let absolute = uri;
+        if (!uri.startsWith("http://") && !uri.startsWith("https://")) {
+          try { absolute = new URL(uri, manifestBase).toString(); } catch { return uri; }
         }
-        return line;
+        return `/hls-proxy?url=${encodeURIComponent(absolute)}`;
+      };
+      const rewritten = text.split("\n").map((rawLine) => {
+        const line = rawLine.trim();
+        if (!line) return rawLine;
+        // Tag dengan atribut URI= (mis. #EXT-X-KEY, #EXT-X-MAP, #EXT-X-MEDIA,
+        // #EXT-X-I-FRAME-STREAM-INF) — rewrite URI di dalam tanda kutip, jangan
+        // sentuh tag lain.
+        if (line.startsWith("#")) {
+          return line.replace(/URI="([^"]+)"/, (m, uri) => `URI="${rewriteUri(uri)}"`);
+        }
+        // Baris non-comment = URI segmen/child playlist
+        return rewriteUri(line);
       }).join("\n");
       return res.send(rewritten);
     }
@@ -301,7 +356,7 @@ app.get("/hls-proxy", async (req, res) => {
     upstream.body.pipe(res);
   } catch (err) {
     console.error("[HLS Proxy Error]", err.message);
-    res.status(500).send("Proxy error: " + redactSecrets(err.message ?? String(err)));
+    res.status(err.statusCode || 500).send("Proxy error: " + redactSecrets(err.message ?? String(err)));
   }
 });
 

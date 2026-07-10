@@ -6,7 +6,7 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 ## Stack
 - **Backend**: Node.js + Express
 - **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js
-- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax) atau MP4 native (PineDrama)
+- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort) atau MP4 native (PineDrama)
 
 ## Struktur Folder
 
@@ -20,7 +20,8 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 │       ├── shortdramavid.js  # Adapter DramaBox (upstream: priv-api.anichin.bio, HLS)
 │       ├── pinedrama.js      # Adapter PineDrama (upstream: priv-api.anichin.bio, MP4)
 │       ├── goodshort.js      # Adapter GoodShort (upstream: priv-api.anichin.bio, HLS + AES-128)
-│       └── shortmax.js       # Adapter ShortMax (upstream: priv-api.anichin.bio, HLS)
+│       ├── shortmax.js       # Adapter ShortMax (upstream: priv-api.anichin.bio, HLS)
+│       └── reelshort.js      # Adapter ReelShort (upstream: priv-api.anichin.bio, HLS, segmen relatif)
 ├── public/
 │   ├── index.html            # Halaman home (hero + baris kategori + pencarian)
 │   ├── watch.html            # Halaman player video (auto-play episode berikutnya)
@@ -49,8 +50,8 @@ Proyek ini membedakan dua level:
 
 | Level | Contoh | Dikelola di |
 |-------|--------|-------------|
-| **Platform** | `dramabox`, `pinedrama`, `goodshort`, `shortmax` | `lib/config.js` → `PLATFORMS` |
-| **Provider** | `dramabox`, `pinedrama`, `goodshort`, `shortmax` | tiap platform punya array `providers` |
+| **Platform** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort` | `lib/config.js` → `PLATFORMS` |
+| **Provider** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort` | tiap platform punya array `providers` |
 
 Satu platform dipetakan ke satu adapter (`adapterPath`). Satu adapter bisa
 melayani beberapa provider jika upstream API-nya mendukung path-segment berbeda.
@@ -83,6 +84,7 @@ providerPlatformMap["dramabox"]  = "dramabox"
 providerPlatformMap["pinedrama"] = "pinedrama"
 providerPlatformMap["goodshort"] = "goodshort"
 providerPlatformMap["shortmax"]  = "shortmax"
+providerPlatformMap["reelshort"] = "reelshort"
 ```
 
 Lalu setiap API call membawa platform yang tepat:
@@ -106,6 +108,7 @@ iterasi seluruhnya dan mengisi satu `<select>` gabungan:
 [ PineDrama ]
 [ GoodShort ]
 [ ShortMax ]
+[ ReelShort ]
 ```
 
 Saat user ganti pilihan, `currentProvider` dan `currentPlatform` diperbarui,
@@ -127,7 +130,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 
 | Key | Nilai | Dipakai oleh |
 |-----|-------|-------------|
-| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"`) | `home.js` — restore platform saat kembali ke home |
+| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"` / `"reelshort"`) | `home.js` — restore platform saat kembali ke home |
 | `dramain_autoplay` | `"on"` / `"off"` | `watch.js` — ingat preferensi putar otomatis |
 
 ### Tipe stream per platform
@@ -138,6 +141,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 | PineDrama | MP4 TikTok CDN | `<video src>` native (`loadMp4`) — URL tidak mengandung secret |
 | GoodShort | HLS `.m3u8` + AES-128 | HLS.js (`loadStream`) — manifest di-fetch server-side, key embedded sebagai `data:` URI (bukan URL eksternal) |
 | ShortMax | HLS `.m3u8` | HLS.js (`loadStream`) — manifest di-fetch server-side, `api_key` tidak pernah ke browser |
+| ReelShort | HLS `.m3u8` | HLS.js (`loadStream`) — manifest di-fetch server-side; endpoint upstream me-redirect ke CDN dan segmennya berupa path RELATIF, di-resolve server-side sebelum diproxy (lihat bagian Keamanan) |
 
 `watch.js` membaca `data.streamType` dari `/api/watch`:
 - `streamType === "mp4"` → `loadMp4(data.videoUrl)` (URL langsung)
@@ -151,6 +155,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 | PineDrama | `pinedrama.js` | — | `priv-api.anichin.bio` | MP4 |
 | GoodShort | `goodshort.js` | — | `priv-api.anichin.bio` | HLS + AES-128 |
 | ShortMax | `shortmax.js` | — | `priv-api.anichin.bio` | HLS |
+| ReelShort | `reelshort.js` | — | `priv-api.anichin.bio` | HLS (segmen relatif) |
 
 Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 
@@ -160,6 +165,16 @@ Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 > dengan URL video lengkap. Adapter `shortmax.js` sengaja mengambil status lock
 > dari `allepisode()`, bukan dari `/detail` — jangan diubah balik ke `/detail`
 > sebagai source of truth status lock.
+
+> **Catatan ReelShort**: endpoint `/reelshort/hls` me-redirect (302) ke manifest
+> asli di CDN `v-mps.crazymaplestudios.com`, dan segmen di dalam manifest itu
+> berupa PATH RELATIF (bukan URL absolut seperti ShortMax/GoodShort). Route
+> `/api/hls-stream` dan `/hls-proxy` di `server.js` sudah diperbaiki untuk
+> resolve baris relatif terhadap `upstream.url` (URL akhir setelah redirect)
+> sebelum diproxy — tanpa ini playback ReelShort gagal. Status locked di semua
+> endpoint (`detail`, `allepisode`, `episode`) konsisten `locked:false` untuk
+> semua judul yang ditest — tidak ada inkonsistensi seperti ShortMax, tapi
+> adapter tetap mengikuti pola ambil status dari `allepisode()` demi konsistensi.
 
 ## API Endpoints Backend
 
@@ -182,7 +197,7 @@ Semua endpoint menerima `?platform=ID` — jika tidak diisi, fallback ke `DEFAUL
 | GET | /api/dubindo/:provider?platform= | Drama sulih suara Indonesia |
 | GET | /api/foryou/:provider?page=N&platform= | Feed rekomendasi (pagination) |
 | GET | /api/notifications?platform= | Status platform (selalu `[]` untuk platform aktif) |
-| GET | /hls-proxy?url= | Relay segmen HLS (tidak perlu api_key) |
+| GET | /hls-proxy?url= | Relay segmen/manifest HLS (tidak perlu api_key; validasi redirect + resolve URI relatif) |
 
 ## Keamanan
 
@@ -213,10 +228,27 @@ argument provider. Route tanpa provider (`/api/notifications`) tidak terimbas.
    - `*.tiktokcdn-us.com`
    - `v3.goodshort.com` (GoodShort segmen HLS)
    - `akamai-static.shorttv.live` (ShortMax segmen HLS)
+   - `v-mps.crazymaplestudios.com` (ReelShort segmen HLS)
 
 Jika platform baru memakai CDN berbeda, tambahkan hostname-nya ke konstanta
 `HLS_ALLOWED_HOSTS` atau kondisi `isAllowedProxyHost()` di `server.js`.
 Host yang ditolak menghasilkan HTTP 403 dan dicatat ke server log.
+
+**Validasi setiap hop redirect**: `/api/hls-stream` dan `/hls-proxy` memakai
+`fetchWithValidatedRedirects()` (bukan `fetch()` biasa) — redirect diikuti
+manual (`redirect:"manual"`) dan setiap hop divalidasi ulang lewat
+`validateProxyTarget()` (protokol, SSRF guard, allowlist), maksimal 5 hop.
+Ini mencegah host yang lolos allowlist awal (mis. `priv-api.anichin.bio`)
+meredirect ke host privat/asing yang seharusnya diblokir — penting untuk
+platform seperti ReelShort yang endpoint HLS-nya memang me-redirect ke CDN.
+
+**Resolusi URI relatif dalam manifest**: kedua route di atas juga resolve
+baris non-comment yang RELATIF (segmen atau child playlist) dan atribut
+`URI="..."` di tag seperti `#EXT-X-KEY`/`#EXT-X-MAP` terhadap `upstream.url`
+(URL akhir setelah redirect) sebelum diproxy. Wajib untuk provider yang
+manifestnya pakai path relatif (ReelShort) — provider dengan segmen absolut
+(ShortMax, GoodShort) tidak terpengaruh karena baris yang sudah absolut
+langsung diproxy tanpa resolve tambahan.
 
 ### Fallback platform di watch page
 
