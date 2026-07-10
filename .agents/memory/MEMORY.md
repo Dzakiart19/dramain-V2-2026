@@ -5,3 +5,4 @@
 - [ShortMax locked-status quirk](shortmax-locked-status.md) — upstream /detail salah tandai locked:true; allepisode/episode selalu locked:false — pakai itu sebagai source of truth
 - [HLS proxy redirect + relative URI handling](hls-proxy-redirect-relative-uri.md) — /hls-proxy & /api/hls-stream harus revalidasi tiap hop redirect (SSRF) dan resolve URI relatif dalam manifest terhadap upstream.url
 - [DramaBite adapter notes](dramabite-adapter.md) — tidak ada endpoint /hls terpisah (manifest langsung dari episode), homepage yang didokumentasikan ternyata tidak ada di upstream nyata
+- [MoboReels adapter notes](moboreels-adapter.md) — MP4 platform; tidak ada allepisode terpisah (pakai detail); videoUrl mengandung CDN sign params (expire, jangan cache); duration normalisasi bug-prone (gunakan explicit null-check bukan ??+ternary)
