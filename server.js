@@ -7,6 +7,17 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
+
+// CORS — izinkan Firebase Hosting (dan semua origin) mengakses API & HLS proxy.
+// Api key tidak pernah sampai ke client (lihat route hls-stream & hls-proxy).
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
+
 app.use(express.static(path.join(__dirname, "public")));
 
 // ─── Load adapter per platform ─────────────────────────────────────────────

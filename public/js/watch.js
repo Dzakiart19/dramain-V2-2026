@@ -1,4 +1,4 @@
-import { api } from "./api.js";
+import { api, backendUrl } from "./api.js";
 import { esc, showToast } from "./utils.js";
 import { icon } from "./icons.js";
 
@@ -132,7 +132,8 @@ async function playEpisode(ep) {
     }
 
     if (!data.videoUrl) throw new Error("URL stream tidak tersedia");
-    loadStream(data.videoUrl);
+    // Prefix BACKEND_URL supaya HLS.js fetch dari Replit, bukan dari Firebase Hosting
+    loadStream(backendUrl(data.videoUrl));
   } catch (e) {
     playerLoader.innerHTML = `
       <div class="loader-card">
