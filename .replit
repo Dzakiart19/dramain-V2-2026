@@ -40,4 +40,4 @@ run = ["node", "server.js"]
 [userenv]
 
 [userenv.shared]
-REPLIT_BACKEND_URL = "None"
+REPLIT_BACKEND_URL = "https://defensive-busy-resources--dzeckubullxau.replit.app"
