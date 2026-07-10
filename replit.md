@@ -21,15 +21,22 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 │       ├── pinedrama.js      # Adapter PineDrama (upstream: priv-api.anichin.bio, MP4)
 │       └── goodshort.js      # Adapter GoodShort (upstream: priv-api.anichin.bio, HLS + AES-128)
 ├── public/
-│   ├── index.html         # Halaman home (hero + baris kategori + pencarian)
-│   ├── watch.html         # Halaman player video (auto-play episode berikutnya)
-│   ├── style.css          # Satu file tema Netflix-style, terorganisir per komponen
+│   ├── index.html            # Halaman home (hero + baris kategori + pencarian)
+│   ├── watch.html            # Halaman player video (auto-play episode berikutnya)
+│   ├── style.css             # Satu file tema Netflix-style, terorganisir per komponen
+│   ├── manifest.json         # PWA manifest — nama, ikon, display:standalone, theme color
+│   ├── favicon.svg           # Favicon SVG (huruf D merah, background gelap)
+│   ├── apple-touch-icon.png  # iOS home screen icon 180×180 PNG
+│   ├── og-image.jpg          # Open Graph image 1200×630 JPEG (fallback semua halaman)
+│   ├── robots.txt            # Disallow /watch.html (konten SPA dinamis, tak ada nilai SEO statis)
+│   ├── sitemap.xml           # Sitemap: hanya homepage; /watch.html dikecualikan by-design
+│   ├── config.js             # window.BACKEND_URL — kosong di Replit, diisi deploy.sh saat Firebase
 │   └── js/
-│       ├── api.js         # Wrapper fetch API ke backend (backendUrl + api helper)
-│       ├── icons.js       # Semua ikon monokrom (inline SVG) — tidak ada emoji
-│       ├── utils.js       # Helper kecil (escape HTML, toast, skeleton)
-│       ├── home.js        # Logika halaman home: hero, baris kategori, search, modal
-│       └── watch.js       # Logika halaman player: episode, auto-play, HLS/MP4
+│       ├── api.js            # Wrapper fetch API ke backend (backendUrl + api helper)
+│       ├── icons.js          # Semua ikon monokrom (inline SVG) — tidak ada emoji
+│       ├── utils.js          # Helper kecil (escape HTML, toast, skeleton)
+│       ├── home.js           # Logika halaman home: hero, baris kategori, search, modal
+│       └── watch.js          # Logika halaman player: episode, auto-play, HLS/MP4
 └── package.json
 ```
 
@@ -205,10 +212,20 @@ tidak ada di URL (link lama / link dibagikan tanpa platform), fallback ke
 provider id. Ini aman karena konvensi proyek ini: **provider id = platform id**.
 Tidak ada nama platform yang di-hardcode lagi.
 
-### loadHome guard
+### Race condition guard — home & watch
 
-`homeLoading` flag mencegah `loadHome()` berjalan dua kali bersamaan jika
-user cepat mengganti provider sebelum load sebelumnya selesai.
+`loadHome()` menggunakan dua lapis pelindung:
+
+1. **`homeLoading` flag** — mencegah `loadHome()` dipanggil ulang sebelum
+   request hero selesai (double-trigger saat user ganti provider cepat).
+2. **`homeToken` counter** — dinaikkan setiap `loadHome()` dipanggil.
+   `loadRow()` dan response hero membandingkan token-nya dengan nilai terkini;
+   jika berbeda (provider sudah diganti lagi), response diabaikan dan DOM
+   tidak di-overwrite dengan konten provider lama.
+
+`playEpisode()` di `watch.js` memakai pola yang sama via **`playToken`** —
+klik episode beruntun tidak bisa menyebabkan response episode lama meng-override
+playback episode yang lebih baru.
 
 ### Push history / tombol back browser (`home.js`)
 
@@ -231,6 +248,46 @@ benar-benar menutup modal/search saat back ditekan (urutan cek: modal dulu,
 baru search). Kalau nanti ada view/overlay baru, tambahkan cabang di listener
 ini dengan pola yang sama — jangan panggil fungsi "tutup" langsung dari
 tombol UI, selalu lewat `pushState` saat buka + `history.back()` saat tutup.
+
+## SEO & PWA
+
+### Aset statis
+
+| File | Spec | Keterangan |
+|------|------|------------|
+| `og-image.jpg` | 1200×630 JPEG | Gambar fallback Open Graph & Twitter Card |
+| `apple-touch-icon.png` | 180×180 PNG | iOS home screen icon |
+| `favicon.svg` | SVG | Favicon semua browser modern |
+| `manifest.json` | — | PWA manifest: nama, ikon, `display:standalone`, `theme_color:#141414` |
+
+### Meta tag per halaman
+
+Kedua halaman (`index.html`, `watch.html`) memiliki set lengkap:
+- **Primary**: `description`, `author`, `robots`, `theme-color`
+- **Open Graph**: `og:type`, `og:title`, `og:description`, `og:url`, `og:image`, `og:image:type`, `og:image:width/height`, `og:image:alt`, `og:locale`
+- **Twitter/X Card**: `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`, `twitter:image:alt`
+- **PWA**: `mobile-web-app-capable`, `apple-mobile-web-app-*`, `application-name`
+- **Manifest**: `<link rel="manifest" href="/manifest.json">`
+- **Canonical**: `<link rel="canonical">` — `index.html` statis; `watch.html` dinamis (di-update oleh `watch.js`)
+
+### Structured data (JSON-LD)
+
+- **`index.html`** — schema `WebSite` + `SearchAction` (statis, inline di `<head>`)
+- **`watch.html`** — schema `VideoObject` (placeholder statis di `<head id="schemaJsonLd">`,
+  di-update oleh `updateMetaTags()` di `watch.js` saat drama berhasil dimuat)
+
+### Dynamic meta update (`watch.js`)
+
+`updateMetaTags(drama)` dipanggil saat `/api/drama` selesai. Fungsi ini memperbarui:
+- `<title>`, `description`, semua `og:*` dan `twitter:*`
+- `<link rel="canonical" id="canonicalLink">` → di-set ke `location.href` aktual (lengkap dengan `?provider=&id=&ep=`)
+- `<script id="schemaJsonLd">` → di-replace dengan JSON-LD `VideoObject` berisi data drama nyata
+
+### robots.txt & sitemap.xml
+
+`/watch.html` sengaja di-`Disallow` di `robots.txt` dan tidak dimasukkan ke `sitemap.xml`
+karena kontennya dirender sepenuhnya oleh JavaScript — tidak ada nilai SEO statis yang bisa
+di-crawl. Search engine akan menemukannya melalui tautan internal dari beranda.
 
 ## Cara Menambah Platform Baru
 
