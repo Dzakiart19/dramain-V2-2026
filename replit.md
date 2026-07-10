@@ -73,10 +73,10 @@ tidak perlu diubah untuk menambah platform baru.
 | GET | /api/dubindo/:provider | Drama sulih suara Indonesia |
 | GET | /api/foryou/:provider?page=N | Feed rekomendasi (pagination) |
 | GET | /api/more/:provider?q= | Cari lebih banyak (dipakai tombol "Muat Lebih") |
-| GET | /api/notifications | Status platform (fallback ke shortdramavid.xyz, opsional) |
+| GET | /api/notifications | Status platform (selalu return array kosong — endpoint tidak ada di API asli) |
 | GET | /hls-proxy?url= | Relay segmen HLS (hindari CORS) |
 
-**Sumber data asli:** `https://priv-api.anichin.bio/api/{provider}/{action}` — butuh `ANICHIN_API_KEY` (Replit Secret) di setiap request, HANYA dipanggil server-side (lihat `lib/providers/shortdramavid.js`). Key tidak pernah dikirim ke browser: route `/api/hls-stream` mengambil manifest upstream lalu me-rewrite URL segmen ke `/hls-proxy` (yang tidak butuh key), dan semua pesan error di-redact dari secret sebelum diteruskan ke client. Endpoint `notifications` tidak ada di API asli sehingga tetap fallback ke shortdramavid.xyz (gagal pun tidak masalah, hanya info status platform).
+**Sumber data asli:** `https://priv-api.anichin.bio/api/{provider}/{action}` — butuh `ANICHIN_API_KEY` (Replit Secret) di setiap request, HANYA dipanggil server-side (lihat `lib/providers/shortdramavid.js`). Key tidak pernah dikirim ke browser: route `/api/hls-stream` mengambil manifest upstream lalu me-rewrite URL segmen ke `/hls-proxy` (yang tidak butuh key), dan semua pesan error di-redact dari secret sebelum diteruskan ke client. Endpoint `notifications` tidak ada di API asli sehingga selalu return `[]`.
 
 ## Setup & Deploy
 

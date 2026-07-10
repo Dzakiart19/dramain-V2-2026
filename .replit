@@ -36,3 +36,8 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["node", "server.js"]
+
+[userenv]
+
+[userenv.shared]
+REPLIT_BACKEND_URL = "https://fef92366-6c19-420a-99a2-de9c5f6aa20c-00-gpig8ql222gh.sisko.replit.dev"
