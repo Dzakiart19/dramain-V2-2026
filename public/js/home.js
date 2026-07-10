@@ -302,6 +302,9 @@ function emptyState(title, sub = "") {
 
 /* ─── Modal ───────────────────────────────────────────────── */
 async function openModal(id, provider) {
+  // Push history entry khusus modal — supaya tombol back browser menutup
+  // modal dulu (bukan langsung mundur melewati search/home di belakangnya).
+  history.pushState({ view: "modal", id, provider }, "");
   overlay.classList.remove("hidden");
   document.body.classList.add("no-scroll");
   modalContent.innerHTML = `<div class="modal-loading"><div class="spinner"></div></div>`;
@@ -342,6 +345,15 @@ function closeModal() {
   document.body.classList.remove("no-scroll");
 }
 
+// Tutup modal lewat tombol/klik user: mundur satu history entry (entry
+// yang dipush saat openModal) — popstate listener di bawah yang benar-benar
+// menutup DOM-nya. Ini menjaga hitungan history tetap konsisten dengan
+// tombol back browser.
+function requestCloseModal() {
+  if (history.state?.view === "modal") history.back();
+  else closeModal();
+}
+
 /* ─── Events ──────────────────────────────────────────────── */
 providerFilter.addEventListener("change", () => {
   const selected = providerFilter.value;
@@ -367,7 +379,7 @@ searchInput.addEventListener("keydown", (e) => e.key === "Escape" && closeSearch
 // modal dan lagi di hasil pencarian, tutup search (kembali ke home)
 // — jangan langsung keluar dari halaman/situs.
 window.addEventListener("popstate", (e) => {
-  if (!overlay.classList.contains("hidden")) {
+  if (!overlay.classList.contains("hidden") && e.state?.view !== "modal") {
     closeModal();
     return;
   }
@@ -376,9 +388,9 @@ window.addEventListener("popstate", (e) => {
   }
 });
 
-modalClose.addEventListener("click", closeModal);
-overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !overlay.classList.contains("hidden")) closeModal(); });
+modalClose.addEventListener("click", requestCloseModal);
+overlay.addEventListener("click", (e) => { if (e.target === overlay) requestCloseModal(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !overlay.classList.contains("hidden")) requestCloseModal(); });
 
 document.querySelector(".logo").addEventListener("click", (e) => {
   e.preventDefault();
