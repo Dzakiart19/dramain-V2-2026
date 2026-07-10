@@ -177,6 +177,39 @@ app.get("/api/subtitles/:provider/:id", async (req, res) => {
   }
 });
 
+// Daftar hostname CDN yang diizinkan oleh /hls-proxy.
+// Tambah entry baru di sini jika platform baru memakai CDN berbeda.
+const HLS_ALLOWED_HOSTS = new Set([
+  "priv-api.anichin.bio",
+  // CDN TikTok (PineDrama) — semua sub-domain *.tiktokcdn.com & *.tiktokv.com
+]);
+
+function isAllowedProxyHost(hostname) {
+  if (HLS_ALLOWED_HOSTS.has(hostname)) return true;
+  // Izinkan seluruh sub-domain TikTok CDN (PineDrama)
+  if (hostname.endsWith(".tiktokcdn.com")) return true;
+  if (hostname.endsWith(".tiktokv.com"))   return true;
+  if (hostname.endsWith(".tiktokcdn-us.com")) return true;
+  return false;
+}
+
+// Blokir target yang mengarah ke jaringan internal (SSRF guard).
+function isPrivateHost(hostname) {
+  // localhost & loopback
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return true;
+  // Private IPv4 ranges: 10/8, 172.16/12, 192.168/16, 169.254/16
+  const v4 = hostname.match(/^(\d+)\.(\d+)/);
+  if (v4) {
+    const [, a, b] = v4.map(Number);
+    if (a === 10) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 0) return true;
+  }
+  return false;
+}
+
 // GET /hls-proxy?url=ENCODED_URL — relay HLS manifest & segments via server
 // Menghindari CORS block browser saat fetch dari domain eksternal
 app.get("/hls-proxy", async (req, res) => {
@@ -186,6 +219,22 @@ app.get("/hls-proxy", async (req, res) => {
   let target;
   try { target = new URL(url); } catch {
     return res.status(400).send("URL tidak valid");
+  }
+
+  // Hanya izinkan http/https
+  if (target.protocol !== "https:" && target.protocol !== "http:") {
+    return res.status(400).send("Protokol tidak diizinkan");
+  }
+
+  // Blokir akses ke jaringan internal (SSRF)
+  if (isPrivateHost(target.hostname)) {
+    return res.status(403).send("Host tidak diizinkan");
+  }
+
+  // Allowlist CDN — hanya domain yang dikenal boleh diakses
+  if (!isAllowedProxyHost(target.hostname)) {
+    console.warn("[HLS Proxy] Host ditolak:", target.hostname);
+    return res.status(403).send("Host tidak diizinkan");
   }
 
   const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36";

@@ -160,6 +160,37 @@ Semua endpoint menerima `?platform=ID` — jika tidak diisi, fallback ke `DEFAUL
 | GET | /api/notifications?platform= | Status platform (selalu `[]` untuk platform aktif) |
 | GET | /hls-proxy?url= | Relay segmen HLS (tidak perlu api_key) |
 
+## Keamanan
+
+### HLS Proxy — allowlist CDN (`server.js`)
+
+`/hls-proxy` hanya meneruskan request ke host yang ada di allowlist.
+Dua lapisan proteksi:
+
+1. **SSRF guard** — blokir localhost, loopback, dan seluruh range IP private
+   (10/8, 172.16/12, 192.168/16, 169.254/16).
+2. **CDN allowlist** — hanya domain berikut yang diizinkan:
+   - `priv-api.anichin.bio`
+   - `*.tiktokcdn.com` (PineDrama via TikTok CDN)
+   - `*.tiktokv.com`
+   - `*.tiktokcdn-us.com`
+
+Jika platform baru memakai CDN berbeda, tambahkan hostname-nya ke konstanta
+`HLS_ALLOWED_HOSTS` atau kondisi `isAllowedProxyHost()` di `server.js`.
+Host yang ditolak menghasilkan HTTP 403 dan dicatat ke server log.
+
+### Fallback platform di watch page
+
+`PLATFORM = params.get("platform") || PROVIDER` — jika parameter `?platform=`
+tidak ada di URL (link lama / link dibagikan tanpa platform), fallback ke
+provider id. Ini aman karena konvensi proyek ini: **provider id = platform id**.
+Tidak ada nama platform yang di-hardcode lagi.
+
+### loadHome guard
+
+`homeLoading` flag mencegah `loadHome()` berjalan dua kali bersamaan jika
+user cepat mengganti provider sebelum load sebelumnya selesai.
+
 ## Cara Menambah Platform Baru
 
 Baca skill `add-streaming-platform` (`.agents/skills/add-streaming-platform/SKILL.md`)
@@ -171,8 +202,10 @@ Ringkas:
 2. Buat `lib/providers/{nama}.js` dengan 13 fungsi kontrak yang persis sama.
 3. Tambah entry ke `lib/config.js` → `PLATFORMS`. **Provider id harus unik
    secara global** (tidak boleh sama dengan provider platform lain).
-4. Restart server — dropdown di UI otomatis memunculkan platform baru.
-5. Smoke-test tiap endpoint dengan `?platform={id-baru}`.
+4. Tambah CDN hostname platform baru ke `HLS_ALLOWED_HOSTS` / `isAllowedProxyHost()`
+   di `server.js` — jika tidak ditambahkan, segmen video tidak bisa diproxy.
+5. Restart server — dropdown di UI otomatis memunculkan platform baru.
+6. Smoke-test tiap endpoint dengan `?platform={id-baru}`.
 
 Frontend (`public/`), routes (`server.js`), dan `lib/fetcher.js` **tidak perlu diubah**.
 

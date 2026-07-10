@@ -199,6 +199,29 @@ provider baru — tidak perlu ubah frontend.
 
 ---
 
+## Step 3b — Daftarkan CDN di HLS proxy allowlist
+
+`/hls-proxy` di `server.js` hanya meneruskan request ke host yang ada di
+allowlist (`HLS_ALLOWED_HOSTS` + `isAllowedProxyHost()`). Host yang tidak
+terdaftar mendapat HTTP 403.
+
+Jika platform baru menyajikan video via HLS dan segmennya datang dari CDN
+yang belum terdaftar, tambahkan hostname-nya sebelum melakukan smoke-test:
+
+```js
+// server.js — konstanta HLS_ALLOWED_HOSTS
+const HLS_ALLOWED_HOSTS = new Set([
+  "priv-api.anichin.bio",
+  "cdn.platform-baru.com",   // ← tambahkan di sini
+]);
+
+// atau tambahkan kondisi di isAllowedProxyHost() untuk wildcard subdomain:
+if (hostname.endsWith(".platform-baru-cdn.net")) return true;
+```
+
+Untuk platform MP4 (seperti PineDrama), `/hls-proxy` tidak dipakai — URL MP4
+dikirim langsung ke browser. Langkah ini bisa dilewati untuk platform MP4.
+
 ## Step 4 — Smoke-test setiap endpoint
 
 Restart workflow, lalu curl atau buka di browser dengan `?platform={id-baru}`:
@@ -233,9 +256,13 @@ Pastikan:
 
 | File | Kenapa |
 |------|--------|
-| `public/` (semua frontend) | Platform-agnostic — dropdown diisi dari `/api/config`, `?platform=` sudah dikirim otomatis |
-| `server.js` | Route sudah generic via `getAdapter(platform)` — tambah route baru hanya jika platform punya fitur benar-benar baru yang belum ada route-nya |
+| `public/` (semua frontend) | Platform-agnostic — dropdown diisi dari `/api/config`, `?platform=` sudah dikirim otomatis, `PLATFORM` fallback pakai provider id |
+| `server.js` routes | Sudah generic via `getAdapter(platform)` — tambah route baru hanya jika platform punya fitur benar-benar baru |
 | `lib/fetcher.js` | HTTP client shared dengan retry/timeout/redaction — reuse, jangan buat wrapper baru |
+
+**Yang wajib diubah di `server.js` untuk platform HLS baru:**
+Tambah CDN hostname ke `HLS_ALLOWED_HOSTS` / `isAllowedProxyHost()`.
+Untuk platform MP4 (video langsung ke browser), ini tidak diperlukan.
 
 ---
 

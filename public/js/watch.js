@@ -6,8 +6,8 @@ import { icon } from "./icons.js";
 const params    = new URLSearchParams(location.search);
 const PROVIDER  = params.get("provider") || "dramabox";
 const ID        = params.get("id") || "";
-// Jika platform tidak ada di URL, coba tebak dari provider (fallback aman)
-const PLATFORM  = params.get("platform") || (PROVIDER === "pinedrama" ? "pinedrama" : "dramabox");
+// Jika platform tidak ada di URL, fallback ke provider id (konvensi: provider id = platform id)
+const PLATFORM  = params.get("platform") || PROVIDER;
 let   currentEp = Number(params.get("ep")) || 1;
 let   totalEpisodesCount = 0;
 let   episodesData = [];

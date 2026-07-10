@@ -9,6 +9,7 @@ let currentPlatform = "";
 const providerPlatformMap = {};
 let foryouPage = 1;
 let foryouLoading = false;
+let homeLoading = false;
 
 /* ─── DOM ─────────────────────────────────────────────────── */
 const $ = (id) => document.getElementById(id);
@@ -198,6 +199,8 @@ async function loadForYou(provider, append = false) {
 
 /* ─── Home — muat hero + semua baris kategori ───────────────── */
 async function loadHome(provider, platform) {
+  if (homeLoading) return;
+  homeLoading = true;
   foryouPage = 1;
   rowsRoot.innerHTML = "";
 
@@ -212,6 +215,7 @@ async function loadHome(provider, platform) {
     loadRow(row, provider, platform);
   }
   loadForYou(provider, false);
+  homeLoading = false;
 }
 
 /* ─── Search ──────────────────────────────────────────────── */
