@@ -5,37 +5,82 @@ description: Add a new streaming platform/provider adapter to the Dramain Aja ap
 
 # Add Streaming Platform (Dramain Aja)
 
-Dramain Aja loads one **adapter module per platform**. `server.js` never talks
-to any upstream API directly — it only calls a fixed set of adapter
-functions. Adding a platform means writing one adapter file with that exact
-function contract and registering it in `lib/config.js`. Nothing else needs
-to change (frontend, routes, and category rows are all platform-agnostic).
+Dramain Aja menggunakan pola **adapter per platform**. `server.js` tidak
+pernah bicara langsung ke upstream API — ia hanya memanggil fungsi adapter
+yang sudah terdefinisi. Frontend sudah platform-agnostic: ia membaca daftar
+platform dari `/api/config` dan menyertakan `?platform=ID` di setiap request.
 
-## Step 1 — Investigate the new upstream API first
+Menambah platform = tulis satu adapter + satu entry di config. Tidak ada file
+lain yang perlu diubah.
 
-Before writing any code, confirm with real requests (curl / fetch) — do not
-guess field names from docs alone:
-- Base URL and auth method (API key as query param, header, or none).
-- Whether it returns JSON directly or wraps results in `{ items: [...] }` /
+---
+
+## Konsep penting sebelum mulai
+
+### Platform vs Provider
+
+| Konsep | Contoh | Dikelola di |
+|--------|--------|-------------|
+| **Platform** | `dramabox`, `pinedrama` | `lib/config.js` → `PLATFORMS` |
+| **Provider** | `dramabox`, `pinedrama` | array `providers` di tiap platform |
+
+Satu platform → satu adapter file. Satu adapter bisa melayani beberapa
+provider jika upstream API mendukung path-segment berbeda (misalnya
+`/api/dramacool/trending` vs `/api/dramabox/trending` dari upstream yang sama).
+
+**Provider id harus unik secara global** di seluruh `PLATFORMS`. Frontend
+membangun `providerPlatformMap` (provider → platform) dari `/api/config`, dan
+jika dua platform memakai provider id yang sama, pemetaan akan silently salah.
+
+### Parameter `?platform=` adalah wajib
+
+Setiap route di `server.js` menerima `?platform=ID` untuk memilih adapter.
+Tanpa itu, server jatuh ke `DEFAULT_PLATFORM`. Frontend (`home.js`,
+`watch.js`) sudah selalu mengirim parameter ini — pastikan semua link dan URL
+yang dibangun di kode ikut menyertakannya.
+
+### Tipe stream
+
+Ada dua tipe video yang sudah didukung frontend:
+
+| Nilai `streamType` | Cara putar | Kapan dipakai |
+|--------------------|-----------|---------------|
+| `"hls"` (default) | HLS.js via `/api/hls-stream/` | Upstream mengembalikan `.m3u8` yang butuh API key |
+| `"mp4"` | `<video src>` native, URL langsung | Upstream mengembalikan URL MP4 publik tanpa secret |
+
+`watch.js` membaca `data.streamType` dari `/api/watch` dan memilih player
+yang tepat. Tidak perlu ubah frontend untuk tipe stream baru selama masuk
+salah satu dari dua ini.
+
+---
+
+## Step 1 — Investigasi API upstream
+
+Sebelum menulis kode apapun, konfirmasi dengan request nyata (curl / fetch).
+Jangan tebak dari dokumentasi:
+
+- **Base URL** dan metode auth (API key di query param, header, atau tidak ada).
+- **Format response** — JSON langsung atau dibungkus `{ items: [...] }` /
   `{ data: [...] }`.
-- Field names for id, title, cover image, description, episode count.
-- Whether "episode list" and "drama detail" are the same endpoint or
-  separate ones (in the existing DramaBox adapter these were separate and
-  the detail endpoint's episode numbering was unreliable — always sanity
-  check by comparing episode `number` against the array index).
-- How locked/premium episodes are marked.
-- How the video manifest is resolved (some APIs return a playable URL
-  directly in the episode object; DramaBox requires a separate `hls` action
-  that returns a raw `.m3u8` manifest needing the API key).
+- **Field name** untuk id, title, cover, description, episode count.
+- **Detail vs episode list** — apakah satu endpoint atau dua endpoint terpisah?
+  (DramaBox memisahkan keduanya, dan field `episodes` di `detail` tidak selalu
+  sinkron nomornya — selalu crosscheck dengan `allepisode`).
+- **Episode lock** — bagaimana episode premium/terkunci ditandai.
+- **Resolve video** — apakah upstream mengembalikan URL MP4 langsung di objek
+  episode, atau membutuhkan request terpisah yang mengembalikan manifest `.m3u8`
+  yang mengandung API key?
 
-If the platform needs a secret (API key, token), get it via the
-environment-secrets flow — **never hardcode it in the adapter file.**
+Jika platform butuh secret (API key, token), gunakan environment-secrets flow —
+**tidak pernah hardcode di adapter file**.
 
-## Step 2 — Create the adapter file
+---
 
-Create `lib/providers/{platform-name}.js`. It **must** export exactly these
-functions (see `lib/providers/shortdramavid.js` as the reference
-implementation):
+## Step 2 — Buat adapter file
+
+Buat `lib/providers/{nama-platform}.js`. File ini **wajib** mengekspor
+persis 13 fungsi berikut (lihat `lib/providers/shortdramavid.js` sebagai
+referensi implementasi lengkap):
 
 ```js
 module.exports = {
@@ -44,7 +89,7 @@ module.exports = {
   allepisode,      // (provider, id) => { bookId, bookName, cover, totalEpisodes, episodes }
   subtitles,       // (provider, id, ep) => Array
   languages,       // (provider) => { default, languages }
-  stream,          // (provider, id, ep) => { videoUrl, locked, episodeNumber, qualityList }
+  stream,          // (provider, id, ep) => { videoUrl, locked, episodeNumber, qualityList, streamType? }
   browse,          // (provider) => Array<DramaSummary>
   trending,        // (provider) => Array<DramaSummary>
   latest,          // (provider) => Array<DramaSummary>
@@ -52,100 +97,138 @@ module.exports = {
   dubindo,         // (provider) => Array<DramaSummary>
   foryou,          // (provider, page) => { items, page, perPage, total, hasMore }
   notifications,   // () => Array
-  hlsManifestUrl,  // (provider, id, ep) => string (server-side only, may contain secrets)
+  hlsManifestUrl,  // (provider, id, ep) => string (server-side only)
 };
 ```
 
-If a feature doesn't exist on the new platform's real API, still export the
-function — return an empty array/object (or, for `hlsManifestUrl`, throw a
-clear error) so the shared routes in `server.js` never crash. Do not remove
-routes or make functions conditional; keep the platform-agnostic contract
-intact.
+Jika sebuah fitur tidak ada di API upstream, tetap ekspor fungsinya —
+kembalikan array kosong / object kosong yang sesuai kontrak, atau untuk
+`hlsManifestUrl` lempar error yang jelas. Jangan hapus atau jadikan kondisional;
+kontrak harus utuh agar route generik di `server.js` tidak crash.
 
-### Shapes to follow
+### Shape yang wajib diikuti
 
-`DramaSummary` (used by search/trending/latest/vip/dubindo/foryou/browse):
+`DramaSummary` (dipakai oleh search / trending / latest / vip / dubindo / foryou / browse):
 ```js
-{ id, title, cover, provider, episodes /* count, number */, description }
+{ id, title, cover, provider, episodes /* angka jumlah */, description }
 ```
 
-`DramaDetail` (used by `detail`):
+`DramaDetail` (dipakai oleh `detail`):
 ```js
 { id, title, cover, description, totalEpisodes, episodes /* array */, provider }
 ```
 
-`episodes` array item (from `allepisode`, and reused by `detail`):
+Item episode (dari `allepisode`, di-reuse oleh `detail`):
 ```js
-{ number, title, locked, duration }
+{ number, title, locked, duration /* detik */ }
 ```
 
-Normalize every list response through one small internal helper (see
-`normalizeSearchItem` in the reference adapter) instead of repeating field
-mapping in every function — this is what keeps the adapter maintainable.
+Return `stream()`:
+```js
+{
+  videoUrl,        // string — path internal atau URL publik (lihat aturan keamanan)
+  locked,          // boolean
+  episodeNumber,   // number
+  qualityList,     // Array — boleh kosong
+  streamType,      // "hls" | "mp4" — opsional, default dianggap "hls" oleh frontend
+}
+```
 
-### Security rule for API keys (non-negotiable)
+Buat satu normalizer internal (lihat `normalizeSearchItem` di referensi) yang
+dipanggil oleh semua fungsi list — jangan ulangi field-mapping di tiap fungsi.
 
-- Read secrets only from `process.env`, never hardcode them.
-- `buildUrl()`-style helpers may embed the key in upstream request URLs —
-  that's fine, because those URLs are only ever fetched **server-side**.
-- `stream()` must NOT return a raw upstream URL containing the key. Return
-  an internal route path instead (`/api/hls-stream/:provider/:id?ep=N`,
-  already implemented generically in `server.js` — it calls
-  `adapter.hlsManifestUrl()` server-side and rewrites segment URLs through
-  the key-free `/hls-proxy` route). Reuse this existing route; don't build a
-  new one per platform.
-- Never let error messages reaching the client contain a raw upstream URL.
-  Use `lib/fetcher.js`'s `fetchJSON` (it already redacts `api_key`/`token`/
-  `secret`/`password` query params before throwing) and `server.js`'s
-  `redactSecrets()` helper — both are shared, don't duplicate this logic in
-  the adapter.
+### Aturan keamanan API key (tidak bisa dikompromikan)
 
-## Step 3 — Register the platform
+- Baca secret **hanya** dari `process.env`, tidak pernah hardcode.
+- Helper `buildUrl()` boleh menyisipkan key di URL upstream — itu fine karena
+  URL tersebut hanya di-fetch di sisi server.
+- **`stream()` tidak boleh mengembalikan URL mentah yang mengandung API key.**
+  - Jika upstream pakai HLS + API key: kembalikan path internal
+    `/api/hls-stream/:provider/:id?ep=N&platform=PLATFORM`. Route ini sudah ada
+    di `server.js` — ia fetch manifest server-side via `hlsManifestUrl()`, lalu
+    rewrite setiap URL segmen ke `/hls-proxy` (bebas key). Jangan buat route baru.
+  - Jika upstream pakai MP4 publik tanpa secret (seperti PineDrama via TikTok CDN):
+    URL boleh dikembalikan langsung, set `streamType: "mp4"`.
+- Pesan error tidak boleh membawa URL mentah ke client. Gunakan `fetchJSON` dari
+  `lib/fetcher.js` (sudah redact `api_key`/`token`/`secret`/`password`) dan
+  `redactSecrets()` di `server.js` — jangan duplikasi logika ini.
 
-Add an entry to `lib/config.js`:
+---
+
+## Step 3 — Daftarkan di config
+
+Tambah entry ke `lib/config.js`:
 
 ```js
 const PLATFORMS = {
-  dramabox: { /* ...existing... */ },
-  newplatform: {
-    id: "newplatform",
-    label: "Human Readable Name",
-    adapterPath: "./lib/providers/newplatform.js",
+  dramabox:  { /* existing */ },
+  pinedrama: { /* existing */ },
+
+  // Platform baru:
+  namaplatform: {
+    id: "namaplatform",              // harus unik secara global di PLATFORMS
+    label: "Nama Tampilan",
+    adapterPath: "./lib/providers/namaplatform.js",
     providers: [
-      { id: "newplatform", label: "Human Readable Name" },
+      { id: "namaplatform", label: "Nama Tampilan" },
+      // tambah lebih jika satu adapter melayani beberapa sub-catalog
     ],
   },
 };
 ```
 
-A single adapter can back multiple `providers` entries if the upstream API
-serves several sub-catalogs through the same endpoints with a different
-`provider` path segment — pass that value straight to your adapter's
-`buildUrl`.
+**Aturan provider id unik:** id di dalam array `providers` tidak boleh sama
+dengan provider id manapun di platform lain. Frontend memetakan provider→platform
+secara flat — duplikat menyebabkan platform yang salah dipilih secara senyap.
 
-## Step 4 — Restart and smoke-test
+Setelah config diubah, restart server. Dropdown di UI **otomatis** memunculkan
+provider baru — tidak perlu ubah frontend.
 
-Restart the `Start application` workflow, then curl each route with the new
-platform: `/api/config`, `/api/search`, `/api/drama/:provider/:id`,
-`/api/allepisode`, `/api/watch`, `/api/hls-stream`, `/api/trending`,
-`/api/latest`, `/api/vip`, `/api/dubindo`, `/api/foryou`. No frontend changes
-are needed — `public/js/home.js`'s `ROWS` array and `loadForYou()` already
-call these routes generically per platform/provider selected in the UI.
+---
 
-## What you should NOT need to touch
+## Step 4 — Smoke-test setiap endpoint
 
-- `public/` (frontend) — it is fully platform-agnostic; it only knows about
-  the generic `/api/*` routes and renders whatever `/api/config` reports.
-- `server.js` — routes are generic and dispatch through `getAdapter(platform)`;
-  add a route here only if the new platform exposes a genuinely new feature
-  that no existing route covers.
-- `lib/fetcher.js` — shared HTTP helper with retry/timeout/redaction; reuse
-  it, don't write a second fetch wrapper.
+Restart workflow, lalu curl atau buka di browser dengan `?platform={id-baru}`:
 
-## Reference
+```
+/api/config
+/api/trending/{provider}?platform={id}
+/api/latest/{provider}?platform={id}
+/api/vip/{provider}?platform={id}
+/api/dubindo/{provider}?platform={id}
+/api/foryou/{provider}?page=1&platform={id}
+/api/search?q=love&provider={provider}&platform={id}
+/api/drama/{provider}/{some-id}?platform={id}
+/api/allepisode/{provider}/{some-id}?platform={id}
+/api/watch/{provider}/{some-id}?ep=1&platform={id}
+```
 
-Full working example: `lib/providers/shortdramavid.js` (DramaBox platform,
-upstream `priv-api.anichin.bio`, uses `ANICHIN_API_KEY`). Read it end to end
-before writing a new adapter — it demonstrates every pattern above,
-including the `detail`+`allepisode` merge and the `hlsManifestUrl`
-server-side-only pattern.
+Untuk platform HLS, juga test:
+```
+/api/hls-stream/{provider}/{some-id}?ep=1&platform={id}
+```
+
+Pastikan:
+- Tidak ada `api_key` muncul di response JSON manapun.
+- URL HLS segment sudah di-rewrite ke `/hls-proxy?url=...`.
+- Untuk platform MP4, `stream()` mengembalikan `streamType: "mp4"` dan URL
+  bisa dibuka langsung di browser tanpa proxy.
+
+---
+
+## Yang tidak perlu diubah
+
+| File | Kenapa |
+|------|--------|
+| `public/` (semua frontend) | Platform-agnostic — dropdown diisi dari `/api/config`, `?platform=` sudah dikirim otomatis |
+| `server.js` | Route sudah generic via `getAdapter(platform)` — tambah route baru hanya jika platform punya fitur benar-benar baru yang belum ada route-nya |
+| `lib/fetcher.js` | HTTP client shared dengan retry/timeout/redaction — reuse, jangan buat wrapper baru |
+
+---
+
+## Referensi implementasi
+
+| Platform | Adapter | Tipe stream | Catatan |
+|----------|---------|-------------|---------|
+| DramaBox | `lib/providers/shortdramavid.js` | HLS | Referensi utama — baca end-to-end sebelum mulai |
+| PineDrama | `lib/providers/pinedrama.js` | MP4 | Contoh platform tanpa HLS, fallback graceful untuk vip/dubindo/subtitles |

@@ -6,102 +6,169 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 ## Stack
 - **Backend**: Node.js + Express
 - **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js
-- **Video**: HLS (.m3u8) streaming via hls.js
+- **Video**: HLS (.m3u8) via HLS.js (DramaBox) atau MP4 native (PineDrama)
 
 ## Struktur Folder
 
 ```
 /
-├── server.js              # Express server — routes API backend
+├── server.js              # Express server — routes API backend (platform-agnostic)
 ├── lib/
-│   ├── config.js          # Daftar platform & provider aktif
-│   ├── fetcher.js         # HTTP client dengan retry & timeout
+│   ├── config.js          # Daftar platform & provider aktif + DEFAULT_PLATFORM
+│   ├── fetcher.js         # HTTP client dengan retry, timeout & redact secret
 │   └── providers/
-│       └── shortdramavid.js  # Adapter platform DramaBox (upstream: anichin.bio)
+│       ├── shortdramavid.js  # Adapter DramaBox (upstream: priv-api.anichin.bio, HLS)
+│       └── pinedrama.js      # Adapter PineDrama (upstream: priv-api.anichin.bio, MP4)
 ├── public/
 │   ├── index.html         # Halaman home (hero + baris kategori + pencarian)
 │   ├── watch.html         # Halaman player video (auto-play episode berikutnya)
 │   ├── style.css          # Satu file tema Netflix-style, terorganisir per komponen
 │   └── js/
-│       ├── api.js         # Wrapper fetch API ke backend
+│       ├── api.js         # Wrapper fetch API ke backend (backendUrl + api helper)
 │       ├── icons.js       # Semua ikon monokrom (inline SVG) — tidak ada emoji
 │       ├── utils.js       # Helper kecil (escape HTML, toast, skeleton)
 │       ├── home.js        # Logika halaman home: hero, baris kategori, search, modal
-│       └── watch.js       # Logika halaman player: episode, auto-play, HLS
+│       └── watch.js       # Logika halaman player: episode, auto-play, HLS/MP4
 └── package.json
 ```
 
-Setiap kategori beranda (Trending, Terbaru, Dub Indo, VIP, Untuk Anda)
-dideklarasikan sebagai satu entri terpisah di `public/js/home.js` (array
-`ROWS` + `loadForYou`), masing-masing memuat datanya sendiri dari
-endpoint API-nya sendiri — menambah kategori baru tidak menyentuh baris
-lain.
+## Arsitektur Platform & Provider
 
-## Cara Menambah Platform Baru
+### Konsep
 
-Panduan lengkap & konsisten ada di skill `add-streaming-platform`
-(`.agents/skills/add-streaming-platform/SKILL.md`) — baca itu dulu sebelum
-menambah platform baru. Ringkas:
+Proyek ini membedakan dua level:
 
-1. Investigasi API upstream baru langsung (curl), jangan tebak dari dokumen.
-2. Buat `lib/providers/{nama-platform}.js` dengan kontrak fungsi yang persis
-   sama seperti `lib/providers/shortdramavid.js` (lihat daftar fungsi wajib
-   di skill tersebut) — kalau sebuah fitur tidak ada di API baru, tetap
-   ekspor versi kosong/aman agar route generik di `server.js` tidak crash.
-3. Tambah entry di `lib/config.js` → `PLATFORMS`.
-4. Restart server dan smoke-test tiap endpoint dengan platform baru.
+| Level | Contoh | Dikelola di |
+|-------|--------|-------------|
+| **Platform** | `dramabox`, `pinedrama` | `lib/config.js` → `PLATFORMS` |
+| **Provider** | `dramabox`, `pinedrama` | tiap platform punya array `providers` |
 
-Frontend (`public/`) dan route di `server.js` sudah platform-agnostic —
-tidak perlu diubah untuk menambah platform baru.
+Satu platform dipetakan ke satu adapter (`adapterPath`). Satu adapter bisa
+melayani beberapa provider jika upstream API-nya mendukung path-segment berbeda.
+Saat ini masing-masing platform hanya punya satu provider dengan id yang sama.
+
+### Alur request (end-to-end)
+
+```
+Browser → /api/trending/dramabox?platform=dramabox
+              ↓
+          server.js: getAdapter("dramabox") → shortdramavid.js
+              ↓
+          adapter.trending("dramabox") → upstream priv-api.anichin.bio
+              ↓
+          JSON dinormalisasi → { id, title, cover, provider, episodes, ... }
+              ↓
+          Browser merender kartu
+```
+
+### Parameter `?platform=` wajib di semua API call frontend
+
+Setiap request dari browser ke backend **harus** menyertakan `?platform=ID`.
+Tanpa itu, backend jatuh ke `DEFAULT_PLATFORM` (= `dramabox`) — request
+untuk PineDrama akan diproses oleh adapter yang salah.
+
+`home.js` membangun `providerPlatformMap` saat init dari `/api/config`:
+```js
+// provider id → platform id
+providerPlatformMap["dramabox"]  = "dramabox"
+providerPlatformMap["pinedrama"] = "pinedrama"
+```
+
+Lalu setiap API call membawa platform yang tepat:
+```js
+/api/trending/pinedrama?platform=pinedrama
+/api/watch/pinedrama/123?ep=1&platform=pinedrama
+```
+
+`watch.js` membaca `?platform=` dari URL. Jika tidak ada (link lama),
+ia fallback berdasarkan provider: `provider === "pinedrama"` → `platform = "pinedrama"`,
+sisanya → `"dramabox"`. URL selalu diperbarui via `history.replaceState`
+dengan platform agar reload/share link tetap benar.
+
+### Dropdown provider di UI
+
+`/api/config` mengembalikan **semua** platform + provider. `home.js` di `init()`
+iterasi seluruhnya dan mengisi satu `<select>` gabungan:
+
+```
+[ DramaBox ▾ ]   ← default
+[ PineDrama ]
+```
+
+Saat user ganti pilihan, `currentProvider` dan `currentPlatform` diperbarui,
+dan seluruh halaman di-reload dengan data platform baru.
+
+Di mobile, dropdown ini **terlihat** (tidak disembunyikan). Ukuran font
+diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
+
+### Tipe stream per platform
+
+| Platform | Tipe | Cara putar |
+|----------|------|-----------|
+| DramaBox | HLS `.m3u8` | HLS.js (`loadStream`) — manifest di-fetch server-side, api_key tidak pernah ke browser |
+| PineDrama | MP4 TikTok CDN | `<video src>` native (`loadMp4`) — URL tidak mengandung secret |
+
+`watch.js` membaca `data.streamType` dari `/api/watch`:
+- `streamType === "mp4"` → `loadMp4(data.videoUrl)` (URL langsung)
+- lainnya → `loadStream(backendUrl(data.videoUrl))` (path internal `/api/hls-stream/...`)
+
+## Platform yang Aktif
+
+| Platform | Adapter | Default | Upstream |
+|----------|---------|---------|----------|
+| DramaBox | `shortdramavid.js` | ✅ Ya | `priv-api.anichin.bio` |
+| PineDrama | `pinedrama.js` | — | `priv-api.anichin.bio` |
+
+Keduanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 
 ## API Endpoints Backend
 
+Semua endpoint menerima `?platform=ID` — jika tidak diisi, fallback ke `DEFAULT_PLATFORM`.
+
 | Method | Path | Keterangan |
 |--------|------|------------|
-| GET | /api/config | Daftar platform & provider |
-| GET | /api/search?q=&provider= | Cari drama |
-| GET | /api/drama/:provider/:id | Detail drama (episode diambil dari allepisode) |
-| GET | /api/allepisode/:provider/:id | Daftar lengkap episode |
-| GET | /api/subtitles/:provider/:id?ep= | Subtitle satu episode |
-| GET | /api/languages/:provider | Daftar bahasa tersedia |
-| GET | /api/watch/:provider/:id?ep= | Metadata stream (videoUrl → route internal) |
-| GET | /api/hls-stream/:provider/:id?ep= | Manifest HLS (fetch upstream server-side, key tidak pernah ke client) |
-| GET | /api/browse/:provider | Browse drama (gabungan trending + latest) |
-| GET | /api/trending/:provider | Drama trending |
-| GET | /api/latest/:provider | Drama terbaru |
-| GET | /api/vip/:provider | Drama VIP |
-| GET | /api/dubindo/:provider | Drama sulih suara Indonesia |
-| GET | /api/foryou/:provider?page=N | Feed rekomendasi (pagination) |
-| GET | /api/more/:provider?q= | Cari lebih banyak (dipakai tombol "Muat Lebih") |
-| GET | /api/notifications | Status platform (selalu return array kosong — endpoint tidak ada di API asli) |
-| GET | /hls-proxy?url= | Relay segmen HLS (hindari CORS) |
+| GET | /api/config | Daftar semua platform & provider |
+| GET | /api/search?q=&provider=&platform= | Cari drama |
+| GET | /api/drama/:provider/:id?platform= | Detail drama |
+| GET | /api/allepisode/:provider/:id?platform= | Daftar lengkap episode |
+| GET | /api/subtitles/:provider/:id?ep=&platform= | Subtitle satu episode |
+| GET | /api/languages/:provider?platform= | Daftar bahasa tersedia |
+| GET | /api/watch/:provider/:id?ep=&platform= | Metadata stream |
+| GET | /api/hls-stream/:provider/:id?ep=&platform= | Manifest HLS server-side |
+| GET | /api/browse/:provider?platform= | Trending + latest digabung |
+| GET | /api/trending/:provider?platform= | Drama trending |
+| GET | /api/latest/:provider?platform= | Drama terbaru |
+| GET | /api/vip/:provider?platform= | Drama VIP |
+| GET | /api/dubindo/:provider?platform= | Drama sulih suara Indonesia |
+| GET | /api/foryou/:provider?page=N&platform= | Feed rekomendasi (pagination) |
+| GET | /api/notifications?platform= | Status platform (selalu `[]` untuk platform aktif) |
+| GET | /hls-proxy?url= | Relay segmen HLS (tidak perlu api_key) |
 
-**Sumber data asli:** `https://priv-api.anichin.bio/api/{provider}/{action}` — butuh `ANICHIN_API_KEY` (Replit Secret) di setiap request, HANYA dipanggil server-side (lihat `lib/providers/shortdramavid.js`). Key tidak pernah dikirim ke browser: route `/api/hls-stream` mengambil manifest upstream lalu me-rewrite URL segmen ke `/hls-proxy` (yang tidak butuh key), dan semua pesan error di-redact dari secret sebelum diteruskan ke client. Endpoint `notifications` tidak ada di API asli sehingga selalu return `[]`.
+## Cara Menambah Platform Baru
+
+Baca skill `add-streaming-platform` (`.agents/skills/add-streaming-platform/SKILL.md`)
+sebelum mulai — skill itu adalah panduan otoritatif yang mencakup seluruh alur
+termasuk pemetaan `providerPlatformMap` di frontend.
+
+Ringkas:
+1. Investigasi API upstream dengan curl — jangan tebak field name dari dokumentasi.
+2. Buat `lib/providers/{nama}.js` dengan 13 fungsi kontrak yang persis sama.
+3. Tambah entry ke `lib/config.js` → `PLATFORMS`. **Provider id harus unik
+   secara global** (tidak boleh sama dengan provider platform lain).
+4. Restart server — dropdown di UI otomatis memunculkan platform baru.
+5. Smoke-test tiap endpoint dengan `?platform={id-baru}`.
+
+Frontend (`public/`), routes (`server.js`), dan `lib/fetcher.js` **tidak perlu diubah**.
 
 ## Setup & Deploy
 
-- **Instal semua dependency (root + Firebase Functions + Firebase CLI) sekali jalan:**
-  ```
-  ./install.sh
-  ```
-- **Jalankan lokal:** `npm start` (workflow Replit "Start application" juga memanggil ini).
+- **Jalankan lokal:** `npm start` (atau workflow Replit "Start application").
 - **Deploy ke Firebase** (project id: `dramain-aja`):
   ```
-  npx firebase login                         # sekali per environment
+  npx firebase login
   npx firebase deploy --only functions,hosting --project dramain-aja
   ```
-  Arsitektur: satu `package.json` di root melayani dua entry point —
-  `server.js` (dipakai Replit lewat `npm start`, langsung `app.listen`) dan
-  `index.js` (dipakai Firebase Functions, membungkus Express app yang sama
-  lewat `onRequest`, TIDAK pernah listen sendiri). Firebase Hosting
-  di-`rewrite` penuh ke Cloud Function `app` itu (lihat `firebase.json`,
-  `functions.source` = root proyek supaya `server.js` & `lib/**` ikut
-  ter-deploy). Tidak ada logika yang diduplikasi antara jalur Replit dan
-  jalur Firebase.
-
-  Secret `ANICHIN_API_KEY` di Firebase **wajib** disetel lewat Secret
-  Manager (bukan `.env`), supaya konsisten dengan aturan "key hanya
-  dipakai server-side" di seluruh proyek ini:
+  Secret `ANICHIN_API_KEY` di Firebase disetel via Secret Manager:
   ```
   npx firebase functions:secrets:set ANICHIN_API_KEY --project dramain-aja
   ```
@@ -109,3 +176,4 @@ tidak perlu diubah untuk menambah platform baru.
 ## User Preferences
 - Tidak menampilkan konten iklan dari evacuateenclose.com
 - Kode harus mudah dipelihara dan mudah menambah platform baru
+- Provider id harus unik secara global di seluruh PLATFORMS
