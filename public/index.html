@@ -31,7 +31,10 @@
     <div id="notifications" class="notif-bar hidden"></div>
 
     <section id="searchSection" class="hidden">
-      <h2 id="searchTitle" class="search-title"></h2>
+      <div class="search-section-head">
+        <button id="searchBackBtn" class="icon-btn search-back-btn" aria-label="Kembali ke beranda"></button>
+        <h2 id="searchTitle" class="search-title"></h2>
+      </div>
       <div id="searchResults" class="grid-track"></div>
     </section>
 
@@ -56,6 +59,7 @@
     document.getElementById("searchToggle").innerHTML = icon.search();
     document.getElementById("searchClose").innerHTML = icon.close();
     document.getElementById("modalClose").innerHTML = icon.close();
+    document.getElementById("searchBackBtn").innerHTML = icon.back();
   </script>
 </body>
 </html>

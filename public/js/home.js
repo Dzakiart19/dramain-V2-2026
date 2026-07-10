@@ -29,6 +29,7 @@ const modalClose    = $("modalClose");
 const rowsRoot       = $("rowsRoot");
 const hero           = $("hero");
 const notifBar       = $("notifications");
+const searchBackBtn  = $("searchBackBtn");
 
 /* ─── Definisi kategori (baris) ──────────────────────────────
  * Setiap kategori terpisah & mandiri: judul, endpoint, dan cara
@@ -227,8 +228,12 @@ async function doSearch(q) {
 
   homeSection.classList.add("hidden");
   searchSection.classList.remove("hidden");
+  searchBar.classList.remove("is-open");
   searchTitle.textContent = `Hasil pencarian untuk "${q}"`;
   searchResults.innerHTML = skeletonCards(10);
+
+  // Push history agar tombol back browser kembali ke home, bukan keluar
+  history.pushState({ view: "search", q }, "", `?q=${encodeURIComponent(q)}`);
 
   try {
     const results = await api(`/api/search?q=${encodeURIComponent(q)}&provider=${provider}&platform=${platform}`);
@@ -243,11 +248,13 @@ async function doSearch(q) {
   }
 }
 
-function closeSearch() {
+function closeSearch(pushState = true) {
   homeSection.classList.remove("hidden");
   searchSection.classList.add("hidden");
   searchBar.classList.remove("is-open");
   searchInput.value = "";
+  // Kembalikan URL ke "/" hanya jika dipicu user (bukan dari popstate)
+  if (pushState && location.search) history.pushState({ view: "home" }, "", "/");
 }
 
 /* ─── Card HTML ───────────────────────────────────────────── */
