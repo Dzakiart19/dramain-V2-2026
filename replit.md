@@ -130,29 +130,12 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 
 ## Platform yang Aktif
 
-| Platform | Adapter | Default | Upstream | Tipe stream |
-|----------|---------|---------|----------|-------------|
-| DramaBox | `shortdramavid.js` | ✅ Ya | `priv-api.anichin.bio` | HLS |
-| PineDrama | `pinedrama.js` | — | `priv-api.anichin.bio` | MP4 (TikTok CDN) |
-| iDrama | `idrama.js` | — | `priv-api.anichin.bio` (CDN video: `v-a.idrama.video`) | HLS |
+| Platform | Adapter | Default | Upstream |
+|----------|---------|---------|----------|
+| DramaBox | `shortdramavid.js` | ✅ Ya | `priv-api.anichin.bio` |
+| PineDrama | `pinedrama.js` | — | `priv-api.anichin.bio` |
 
-Ketiganya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
-
-**Catatan khusus iDrama:**
-- Tidak ada endpoint `latest`, `vip`, `dubindo`, `allepisode` terpisah di
-  upstream — `latest/vip/dubindo` fallback ke `[]`, dan `allepisode` reuse
-  response `detail` (yang sudah membawa daftar episode lengkap).
-- Manifest HLS-nya berisi baris segmen `.ts` **relatif** (bukan URL absolut)
-  — ditangani oleh `rewriteManifestLine()` di `server.js` yang me-resolve
-  URL relatif terhadap manifest URL sebelum diproxy lewat `/hls-proxy`.
-- `hlsManifestUrl()` di adapter ini **async** (fetch ke upstream dulu untuk
-  dapat manifest URL yang di-sign dinamis) — `server.js` sekarang selalu
-  `await adapter.hlsManifestUrl(...)`, aman juga untuk adapter lain yang
-  mengembalikan string biasa (bukan Promise).
-- `/api/hls-stream` sekarang memvalidasi `manifestUrl` (SSRF guard +
-  allowlist CDN) sebelum fetch, sama seperti `/hls-proxy` — perlu karena
-  URL manifest iDrama di-generate dinamis oleh upstream, bukan dibangun
-  sendiri dari template statis seperti DramaBox.
+Keduanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 
 ## API Endpoints Backend
 
@@ -175,7 +158,7 @@ Semua endpoint menerima `?platform=ID` — jika tidak diisi, fallback ke `DEFAUL
 | GET | /api/dubindo/:provider?platform= | Drama sulih suara Indonesia |
 | GET | /api/foryou/:provider?page=N&platform= | Feed rekomendasi (pagination) |
 | GET | /api/notifications?platform= | Status platform (selalu `[]` untuk platform aktif) |
-| GET | /hls-proxy?url= | Relay segmen HLS (tidak perlu api_key) — hanya host di allowlist CDN |
+| GET | /hls-proxy?url= | Relay segmen HLS (tidak perlu api_key) |
 
 ## Keamanan
 

@@ -138,16 +138,9 @@ module.exports = {
   dubindo,         // (provider) => Array<DramaSummary>
   foryou,          // (provider, page) => { items, page, perPage, total, hasMore }
   notifications,   // () => Array
-  hlsManifestUrl,  // (provider, id, ep) => string | Promise<string> (server-side only)
+  hlsManifestUrl,  // (provider, id, ep) => string (server-side only)
 };
 ```
-
-`hlsManifestUrl` boleh **sync** (return string langsung, seperti DramaBox —
-manifest URL dibangun dari template statis `BASE/provider/hls?...`) atau
-**async** (return Promise, seperti iDrama — manifest URL di-generate dinamis
-oleh upstream lewat request `/episode` dulu, tidak bisa dibangun dari
-template). `server.js` selalu `await` hasilnya, jadi kedua bentuk aman
-dipakai tanpa mengubah kontrak.
 
 Jika sebuah fitur tidak ada di API upstream, tetap ekspor fungsinya —
 kembalikan array kosong / object kosong yang sesuai kontrak, atau untuk
@@ -265,32 +258,6 @@ if (hostname.endsWith(".platform-baru-cdn.net")) return true;
 Untuk platform MP4 (seperti PineDrama), `/hls-proxy` tidak dipakai — URL MP4
 dikirim langsung ke browser. Langkah ini bisa dilewati untuk platform MP4.
 
-### Manifest dengan URL segmen relatif (seperti iDrama)
-
-Beberapa upstream mengembalikan baris segmen `.ts` di manifest `.m3u8` sebagai
-path **relatif** (mis. `/abc123/def.ts?ts=..&secret=..`), bukan URL absolut.
-`rewriteManifestLine(line, baseUrl)` di `server.js` sudah menangani ini secara
-generik — ia me-resolve baris relatif terhadap URL manifest itu sendiri
-(`new URL(line, baseUrl)`) sebelum membungkusnya ke `/hls-proxy?url=...`.
-Tidak perlu logika tambahan di adapter; cukup pastikan `hlsManifestUrl()`
-mengembalikan URL manifest yang benar (sync atau async), fungsi ini otomatis
-menangani baris absolut maupun relatif.
-
-**Wajib dicek saat platform baru pakai HLS:** ambil satu manifest asli lewat
-curl, lihat apakah baris segmennya diawali `http`/`https` (absolut) atau `/`
-(relatif). Kalau relatif, tidak ada langkah tambahan — tapi tetap
-smoke-test manifest hasil `/api/hls-stream` untuk pastikan baris segmen sudah
-ter-rewrite ke `/hls-proxy?url=...` dan bisa di-fetch (lihat Step 4).
-
-### SSRF guard juga berlaku untuk manifest URL dinamis
-
-Jika `hlsManifestUrl()` mengembalikan URL yang **di-generate oleh upstream**
-saat runtime (bukan dibangun dari template statis yang kita kontrol penuh),
-`/api/hls-stream` di `server.js` memvalidasi hostname-nya (SSRF guard +
-allowlist CDN) sebelum fetch — sama seperti `/hls-proxy`. Ini otomatis
-berlaku untuk adapter apapun, tidak perlu ditambahkan manual, selama hostname
-CDN platform sudah didaftarkan di `HLS_ALLOWED_HOSTS` (Step 3c).
-
 ## Step 4 — Smoke-test setiap endpoint
 
 Restart workflow, lalu curl atau buka di browser dengan `?platform={id-baru}`:
@@ -342,4 +309,3 @@ Untuk platform MP4 (video langsung ke browser), ini tidak diperlukan.
 |----------|---------|-------------|---------|
 | DramaBox | `lib/providers/shortdramavid.js` | HLS | Referensi utama — baca end-to-end sebelum mulai |
 | PineDrama | `lib/providers/pinedrama.js` | MP4 | Contoh platform tanpa HLS, fallback graceful untuk vip/dubindo/subtitles |
-| iDrama | `lib/providers/idrama.js` | HLS (manifest URL dinamis) | Contoh platform di mana `hlsManifestUrl()` harus **async** (fetch upstream dulu, bukan template statis), dan manifest-nya berisi baris segmen relatif — lihat "Manifest dengan URL segmen relatif" di bawah |
