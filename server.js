@@ -115,7 +115,9 @@ app.get("/api/hls-stream/:provider/:id", async (req, res) => {
   const { ep = 1, platform = DEFAULT_PLATFORM } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const manifestUrl = adapter.hlsManifestUrl(provider, id, Number(ep));
+    // await diperlukan: hlsManifestUrl() bisa async (contoh: GoodShort perlu fetch
+    // episode dulu untuk mendapat chapterId). Untuk adapter sync (DramaBox) tidak ada efek.
+    const manifestUrl = await adapter.hlsManifestUrl(provider, id, Number(ep));
 
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36";
     const upstream = await fetch(manifestUrl, { headers: { "User-Agent": UA } });
@@ -186,6 +188,7 @@ app.get("/api/subtitles/:provider/:id", async (req, res) => {
 const HLS_ALLOWED_HOSTS = new Set([
   "priv-api.anichin.bio",
   // CDN TikTok (PineDrama) — semua sub-domain *.tiktokcdn.com & *.tiktokv.com
+  "v3.goodshort.com",   // CDN segmen HLS GoodShort
 ]);
 
 function isAllowedProxyHost(hostname) {
