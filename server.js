@@ -329,5 +329,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Drama Stream running on http://0.0.0.0:${PORT}`);
+  console.log(`Dramain Aja running on http://0.0.0.0:${PORT}`);
 });

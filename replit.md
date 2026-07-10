@@ -1,10 +1,11 @@
-# DramaStream
+# Dramain Aja
 
-Web app streaming drama pendek tanpa iklan.
+Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
+(dark, ikon monokrom, baris kategori horizontal, auto-play episode).
 
 ## Stack
 - **Backend**: Node.js + Express
-- **Frontend**: HTML/CSS/Vanilla JS + HLS.js
+- **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js
 - **Video**: HLS (.m3u8) streaming via hls.js
 
 ## Struktur Folder
@@ -16,15 +17,25 @@ Web app streaming drama pendek tanpa iklan.
 │   ├── config.js          # Daftar platform & provider aktif
 │   ├── fetcher.js         # HTTP client dengan retry & timeout
 │   └── providers/
-│       └── shortdramavid.js  # Adapter platform ShortDramaVid
+│       └── shortdramavid.js  # Adapter platform DramaBox (upstream: anichin.bio)
 ├── public/
-│   ├── index.html         # Halaman home + search
-│   ├── watch.html         # Halaman player video
-│   ├── style.css
-│   ├── app.js             # JS frontend halaman home
-│   └── watch.js           # JS frontend halaman player
+│   ├── index.html         # Halaman home (hero + baris kategori + pencarian)
+│   ├── watch.html         # Halaman player video (auto-play episode berikutnya)
+│   ├── style.css          # Satu file tema Netflix-style, terorganisir per komponen
+│   └── js/
+│       ├── api.js         # Wrapper fetch API ke backend
+│       ├── icons.js       # Semua ikon monokrom (inline SVG) — tidak ada emoji
+│       ├── utils.js       # Helper kecil (escape HTML, toast, skeleton)
+│       ├── home.js        # Logika halaman home: hero, baris kategori, search, modal
+│       └── watch.js       # Logika halaman player: episode, auto-play, HLS
 └── package.json
 ```
+
+Setiap kategori beranda (Trending, Terbaru, Dub Indo, VIP, Untuk Anda)
+dideklarasikan sebagai satu entri terpisah di `public/js/home.js` (array
+`ROWS` + `loadForYou`), masing-masing memuat datanya sendiri dari
+endpoint API-nya sendiri — menambah kategori baru tidak menyentuh baris
+lain.
 
 ## Cara Menambah Platform Baru
 

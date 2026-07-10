@@ -3,17 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nonton — DramaStream</title>
+  <title>Memuat... — Dramain Aja</title>
   <link rel="stylesheet" href="/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
 </head>
 <body class="watch-page">
   <header>
     <div class="header-inner">
-      <a href="/" class="logo">🎬 DramaStream</a>
-      <div class="back-btn-wrap">
-        <button onclick="history.back()" class="btn-back">← Kembali</button>
-      </div>
+      <a href="/" class="logo">Dramain<span>Aja</span></a>
+      <button onclick="history.back()" class="btn-back" id="backBtn"><span></span> Kembali</button>
     </div>
   </header>
 
@@ -21,7 +19,7 @@
     <div class="player-wrap">
       <div id="playerLoader" class="player-loader">
         <div class="spinner"></div>
-        <p>Memuat video...</p>
+        <p class="loader-text">Memuat video...</p>
       </div>
       <video id="videoPlayer" controls playsinline></video>
     </div>
@@ -33,7 +31,13 @@
       </div>
 
       <div class="episode-section">
-        <h3>Daftar Episode</h3>
+        <div class="episode-section-head">
+          <h3>Daftar Episode</h3>
+          <button id="autoplayToggle" class="autoplay-toggle" aria-pressed="false">
+            <span class="autoplay-track"><span class="autoplay-dot"></span></span>
+            <span class="autoplay-label">Putar Otomatis</span>
+          </button>
+        </div>
         <div id="episodeStatus" class="ep-status"></div>
         <div id="episodeList" class="episode-grid"></div>
       </div>
@@ -41,6 +45,11 @@
   </main>
 
   <div id="toast" class="toast hidden"></div>
-  <script src="/watch.js"></script>
+
+  <script type="module" src="/js/watch.js"></script>
+  <script type="module">
+    import { icon } from "/js/icons.js";
+    document.querySelector("#backBtn span").innerHTML = icon.back();
+  </script>
 </body>
 </html>
