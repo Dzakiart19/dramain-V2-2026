@@ -40,4 +40,5 @@ run = ["node", "server.js"]
 [userenv]
 
 [userenv.shared]
-REPLIT_BACKEND_URL = "https://fef92366-6c19-420a-99a2-de9c5f6aa20c-00-gpig8ql222gh.sisko.replit.dev"
+REPLIT_BACKEND_URL = "none"
+ANICHIN_API_KEY = "dk_live_d5013a5178ac3a89aee3c55ad6647a1b"
