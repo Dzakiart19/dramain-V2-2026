@@ -59,7 +59,8 @@ function fail(res, err, status = 500) {
   const rawMsg = err?.message ?? String(err);
   // Gunakan statusCode dari error (mis: 400 untuk input tidak valid) jika tersedia
   const httpStatus = err?.statusCode ?? status;
-  console.error("[API Error]", rawMsg);
+  // Redact sebelum log — pesan upstream bisa memuat URL dengan api_key
+  console.error("[API Error]", redactSecrets(rawMsg));
   res.status(httpStatus).json({ ok: false, error: redactSecrets(rawMsg) });
 }
 
@@ -146,21 +147,30 @@ app.get("/api/hls-stream/:provider/:id", async (req, res) => {
     // sebagai base untuk resolve baris segmen yang RELATIF (ReelShort) — beda
     // dari ShortMax/GoodShort yang segmennya sudah URL absolut.
     const manifestBase = upstream.url || manifestUrl;
-    const rewritten = text.split("\n").map((line) => {
-      line = line.trim();
-      if (!line || line.startsWith("#")) return line;
-      let absolute = line;
-      if (!line.startsWith("http://") && !line.startsWith("https://")) {
-        try { absolute = new URL(line, manifestBase).toString(); } catch { return line; }
+    const rewriteUri = (uri) => {
+      let absolute = uri;
+      if (!uri.startsWith("http://") && !uri.startsWith("https://")) {
+        try { absolute = new URL(uri, manifestBase).toString(); } catch { return uri; }
       }
       return `/hls-proxy?url=${encodeURIComponent(absolute)}`;
+    };
+    const rewritten = text.split("\n").map((rawLine) => {
+      const line = rawLine.trim();
+      if (!line) return rawLine;
+      // Tag dengan atribut URI= (mis. #EXT-X-KEY, #EXT-X-MAP) — rewrite URI
+      // di dalam tanda kutip, konsisten dengan logika yang sama di /hls-proxy.
+      if (line.startsWith("#")) {
+        return line.replace(/URI="([^"]+)"/, (m, uri) => `URI="${rewriteUri(uri)}"`);
+      }
+      // Baris non-comment = URI segmen/child playlist
+      return rewriteUri(line);
     }).join("\n");
 
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
     res.setHeader("Cache-Control", "no-store");
     res.send(rewritten);
   } catch (err) {
-    console.error("[HLS Stream Error]", err.message);
+    console.error("[HLS Stream Error]", redactSecrets(err.message));
     res.status(err.statusCode || 500).send("Gagal memuat manifest: " + redactSecrets(err.message ?? String(err)));
   }
 });
@@ -356,7 +366,7 @@ app.get("/hls-proxy", async (req, res) => {
     });
     upstream.body.pipe(res);
   } catch (err) {
-    console.error("[HLS Proxy Error]", err.message);
+    console.error("[HLS Proxy Error]", redactSecrets(err.message));
     res.status(err.statusCode || 500).send("Proxy error: " + redactSecrets(err.message ?? String(err)));
   }
 });

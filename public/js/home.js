@@ -213,21 +213,27 @@ async function loadHome(provider, platform) {
   rowsRoot.innerHTML = "";
 
   try {
-    const trending = await api(`/api/trending/${provider}?platform=${platform}`);
-    // Abaikan jika provider sudah diganti lagi sebelum request ini selesai
-    if (myToken !== homeToken) return;
-    renderHero(trending?.[0]);
-  } catch {
-    if (myToken !== homeToken) return;
-    renderHero(null);
-  }
+    try {
+      const trending = await api(`/api/trending/${provider}?platform=${platform}`);
+      // Abaikan jika provider sudah diganti lagi sebelum request ini selesai
+      if (myToken !== homeToken) return;
+      renderHero(trending?.[0]);
+    } catch {
+      if (myToken !== homeToken) return;
+      renderHero(null);
+    }
 
-  if (myToken !== homeToken) return;
-  for (const row of ROWS) {
-    loadRow(row, provider, platform, myToken);
+    if (myToken !== homeToken) return;
+    for (const row of ROWS) {
+      loadRow(row, provider, platform, myToken);
+    }
+    loadForYou(provider, false);
+  } finally {
+    // Garantikan homeLoading selalu direset — termasuk saat token expired
+    // (return awal di dalam try) supaya provider switch berikutnya tidak
+    // diblokir secara permanen.
+    homeLoading = false;
   }
-  loadForYou(provider, false);
-  homeLoading = false;
 }
 
 /* ─── Search ──────────────────────────────────────────────── */
