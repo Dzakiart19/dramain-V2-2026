@@ -400,7 +400,7 @@ main { padding-bottom: 24px; }
   :root { --card-w: 130px; }
   .header-inner { padding: 0 16px; gap: 10px; }
   .search-wrap.is-open { width: 160px; }
-  .provider-select-wrap { display: none; }
+  .provider-select-wrap select { font-size: 0.78rem; padding: 6px 8px; }
   .row-header, .row-track, .grid-track, .search-title { padding-left: 16px; padding-right: 16px; }
   .hero-content { padding: 0 16px 40px; }
   .notif-bar { padding: 10px 16px; }

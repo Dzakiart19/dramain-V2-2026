@@ -4,7 +4,7 @@ import { icon } from "./icons.js";
 
 /* ─── Parse URL params ────────────────────────────────────── */
 const params    = new URLSearchParams(location.search);
-const PROVIDER  = params.get("provider") || "dramabox";
+const PROVIDER  = params.get("provider") || "pinedrama";
 const ID        = params.get("id") || "";
 let   currentEp = Number(params.get("ep")) || 1;
 let   totalEpisodesCount = 0;
