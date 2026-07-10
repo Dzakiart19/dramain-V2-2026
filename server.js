@@ -191,6 +191,45 @@ app.get("/api/more/:provider", async (req, res) => {
   }
 });
 
+// GET /api/vip/:provider?platform=PLATFORM
+app.get("/api/vip/:provider", async (req, res) => {
+  const { provider } = req.params;
+  const { platform = DEFAULT_PLATFORM } = req.query;
+  try {
+    const adapter = getAdapter(platform);
+    const data = await adapter.vip(provider);
+    ok(res, data);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// GET /api/dubindo/:provider?platform=PLATFORM
+app.get("/api/dubindo/:provider", async (req, res) => {
+  const { provider } = req.params;
+  const { platform = DEFAULT_PLATFORM } = req.query;
+  try {
+    const adapter = getAdapter(platform);
+    const data = await adapter.dubindo(provider);
+    ok(res, data);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
+// GET /api/foryou/:provider?page=1&platform=PLATFORM
+app.get("/api/foryou/:provider", async (req, res) => {
+  const { provider } = req.params;
+  const { page = 1, platform = DEFAULT_PLATFORM } = req.query;
+  try {
+    const adapter = getAdapter(platform);
+    const data = await adapter.foryou(provider, Number(page));
+    ok(res, data);
+  } catch (err) {
+    fail(res, err);
+  }
+});
+
 // GET /api/notifications?platform=PLATFORM
 app.get("/api/notifications", async (req, res) => {
   const { platform = DEFAULT_PLATFORM } = req.query;
