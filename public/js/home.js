@@ -10,6 +10,8 @@ const providerPlatformMap = {};
 let foryouPage = 1;
 let foryouLoading = false;
 let homeLoading = false;
+// Token increment per loadHome() — request dengan token stale diabaikan saat selesai.
+let homeToken = 0;
 
 /* ─── DOM ─────────────────────────────────────────────────── */
 const $ = (id) => document.getElementById(id);
@@ -133,13 +135,15 @@ function scrollRow(track, dir) {
   track.scrollBy({ left: dir * track.clientWidth * 0.9, behavior: "smooth" });
 }
 
-async function loadRow(row, provider, platform) {
+async function loadRow(row, provider, platform, token) {
   const section = ensureRowEl(row);
   const track = section.querySelector("[data-track]");
   track.innerHTML = skeletonCards(8);
 
   try {
     const items = await api(row.endpoint(provider, platform));
+    // Abaikan response jika token sudah tidak berlaku (provider diganti saat request masih berjalan)
+    if (token !== undefined && token !== homeToken) return;
     if (!items?.length) {
       section.classList.add("hidden");
       return;
@@ -148,6 +152,7 @@ async function loadRow(row, provider, platform) {
     track.innerHTML = items.map(cardHTML).join("");
     bindCardClicks(track);
   } catch (e) {
+    if (token !== undefined && token !== homeToken) return;
     section.classList.add("hidden");
   }
 }
@@ -203,17 +208,23 @@ async function loadHome(provider, platform) {
   if (homeLoading) return;
   homeLoading = true;
   foryouPage = 1;
+  // Naikkan token — semua request lama yang belum selesai akan diabaikan saat resolve.
+  const myToken = ++homeToken;
   rowsRoot.innerHTML = "";
 
   try {
     const trending = await api(`/api/trending/${provider}?platform=${platform}`);
+    // Abaikan jika provider sudah diganti lagi sebelum request ini selesai
+    if (myToken !== homeToken) return;
     renderHero(trending?.[0]);
   } catch {
+    if (myToken !== homeToken) return;
     renderHero(null);
   }
 
+  if (myToken !== homeToken) return;
   for (const row of ROWS) {
-    loadRow(row, provider, platform);
+    loadRow(row, provider, platform, myToken);
   }
   loadForYou(provider, false);
   homeLoading = false;

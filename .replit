@@ -40,5 +40,5 @@ run = ["node", "server.js"]
 [userenv]
 
 [userenv.shared]
-REPLIT_BACKEND_URL = "https://peppery-nonstop-element--dzeckxn6ocrqv.replit.app"
+REPLIT_BACKEND_URL = "None"
 ANICHIN_API_KEY = "dk_live_d5013a5178ac3a89aee3c55ad6647a1b"

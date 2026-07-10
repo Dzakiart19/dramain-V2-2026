@@ -11,6 +11,9 @@ const PLATFORM  = params.get("platform") || PROVIDER;
 let   currentEp = Number(params.get("ep")) || 1;
 let   totalEpisodesCount = 0;
 let   episodesData = [];
+// Token untuk mencegah race condition saat klik episode beruntun:
+// response episode lama yang datang terlambat akan diabaikan.
+let   playToken = 0;
 
 /* ─── DOM ─────────────────────────────────────────────────── */
 const $ = (id) => document.getElementById(id);
@@ -125,6 +128,8 @@ async function playEpisode(ep) {
   }
 
   currentEp = ep;
+  // Naikkan token — response request lama yang belum selesai akan diabaikan.
+  const myToken = ++playToken;
 
   document.querySelectorAll(".ep-btn").forEach((b) => {
     b.classList.toggle("active", Number(b.dataset.ep) === ep);
@@ -139,6 +144,9 @@ async function playEpisode(ep) {
     playerLoader.innerHTML = `<div class="spinner"></div><p class="loader-text">Memuat episode ${ep}...</p>`;
 
     const data = await api(`/api/watch/${PROVIDER}/${ID}?ep=${ep}&platform=${PLATFORM}`);
+
+    // Abaikan response jika user sudah klik episode lain sebelum ini selesai
+    if (myToken !== playToken) return;
 
     if (data.locked) {
       playerLoader.innerHTML = `
@@ -159,6 +167,7 @@ async function playEpisode(ep) {
       loadStream(backendUrl(data.videoUrl));
     }
   } catch (e) {
+    if (myToken !== playToken) return;
     playerLoader.innerHTML = `
       <div class="loader-card">
         <div class="loader-icon">${icon.alert()}</div>

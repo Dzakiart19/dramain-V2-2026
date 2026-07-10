@@ -28,10 +28,18 @@ for (const [key, cfg] of Object.entries(PLATFORMS)) {
 
 function getAdapter(platform = DEFAULT_PLATFORM, provider = null) {
   const cfg = PLATFORMS[platform];
-  if (!cfg) throw new Error(`Platform tidak ditemukan: ${platform}`);
+  if (!cfg) {
+    const e = new Error(`Platform tidak ditemukan: ${platform}`);
+    e.statusCode = 400;
+    throw e;
+  }
   if (provider !== null) {
     const valid = cfg.providers.some((p) => p.id === provider);
-    if (!valid) throw new Error(`Provider tidak dikenal untuk platform ${platform}: ${provider}`);
+    if (!valid) {
+      const e = new Error(`Provider tidak dikenal untuk platform ${platform}: ${provider}`);
+      e.statusCode = 400;
+      throw e;
+    }
   }
   return adapters[platform];
 }
@@ -49,8 +57,10 @@ function redactSecrets(msg) {
 
 function fail(res, err, status = 500) {
   const rawMsg = err?.message ?? String(err);
+  // Gunakan statusCode dari error (mis: 400 untuk input tidak valid) jika tersedia
+  const httpStatus = err?.statusCode ?? status;
   console.error("[API Error]", rawMsg);
-  res.status(status).json({ ok: false, error: redactSecrets(rawMsg) });
+  res.status(httpStatus).json({ ok: false, error: redactSecrets(rawMsg) });
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────
