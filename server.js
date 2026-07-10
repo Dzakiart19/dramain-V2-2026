@@ -212,6 +212,7 @@ const HLS_ALLOWED_HOSTS = new Set([
   "v3.goodshort.com",              // CDN segmen HLS GoodShort
   "akamai-static.shorttv.live",    // CDN segmen HLS ShortMax
   "v-mps.crazymaplestudios.com",   // CDN segmen HLS ReelShort
+  "cdn-video.miniepisode.media",   // CDN manifest & segmen HLS DramaBite
 ]);
 
 function isAllowedProxyHost(hostname) {

@@ -6,7 +6,7 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 ## Stack
 - **Backend**: Node.js + Express
 - **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js
-- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort) atau MP4 native (PineDrama)
+- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort, DramaBite) atau MP4 native (PineDrama)
 
 ## Struktur Folder
 
@@ -21,7 +21,8 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 │       ├── pinedrama.js      # Adapter PineDrama (upstream: priv-api.anichin.bio, MP4)
 │       ├── goodshort.js      # Adapter GoodShort (upstream: priv-api.anichin.bio, HLS + AES-128)
 │       ├── shortmax.js       # Adapter ShortMax (upstream: priv-api.anichin.bio, HLS)
-│       └── reelshort.js      # Adapter ReelShort (upstream: priv-api.anichin.bio, HLS, segmen relatif)
+│       ├── reelshort.js      # Adapter ReelShort (upstream: priv-api.anichin.bio, HLS, segmen relatif)
+│       └── dramabite.js      # Adapter DramaBite (upstream: priv-api.anichin.bio, HLS, manifest langsung tanpa redirect)
 ├── public/
 │   ├── index.html            # Halaman home (hero + baris kategori + pencarian)
 │   ├── watch.html            # Halaman player video (auto-play episode berikutnya)
@@ -50,8 +51,8 @@ Proyek ini membedakan dua level:
 
 | Level | Contoh | Dikelola di |
 |-------|--------|-------------|
-| **Platform** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort` | `lib/config.js` → `PLATFORMS` |
-| **Provider** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort` | tiap platform punya array `providers` |
+| **Platform** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite` | `lib/config.js` → `PLATFORMS` |
+| **Provider** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite` | tiap platform punya array `providers` |
 
 Satu platform dipetakan ke satu adapter (`adapterPath`). Satu adapter bisa
 melayani beberapa provider jika upstream API-nya mendukung path-segment berbeda.
@@ -85,6 +86,7 @@ providerPlatformMap["pinedrama"] = "pinedrama"
 providerPlatformMap["goodshort"] = "goodshort"
 providerPlatformMap["shortmax"]  = "shortmax"
 providerPlatformMap["reelshort"] = "reelshort"
+providerPlatformMap["dramabite"] = "dramabite"
 ```
 
 Lalu setiap API call membawa platform yang tepat:
@@ -109,6 +111,7 @@ iterasi seluruhnya dan mengisi satu `<select>` gabungan:
 [ GoodShort ]
 [ ShortMax ]
 [ ReelShort ]
+[ DramaBite ]
 ```
 
 Saat user ganti pilihan, `currentProvider` dan `currentPlatform` diperbarui,
@@ -130,7 +133,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 
 | Key | Nilai | Dipakai oleh |
 |-----|-------|-------------|
-| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"` / `"reelshort"`) | `home.js` — restore platform saat kembali ke home |
+| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"` / `"reelshort"` / `"dramabite"`) | `home.js` — restore platform saat kembali ke home |
 | `dramain_autoplay` | `"on"` / `"off"` | `watch.js` — ingat preferensi putar otomatis |
 
 ### Tipe stream per platform
@@ -142,6 +145,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 | GoodShort | HLS `.m3u8` + AES-128 | HLS.js (`loadStream`) — manifest di-fetch server-side, key embedded sebagai `data:` URI (bukan URL eksternal) |
 | ShortMax | HLS `.m3u8` | HLS.js (`loadStream`) — manifest di-fetch server-side, `api_key` tidak pernah ke browser |
 | ReelShort | HLS `.m3u8` | HLS.js (`loadStream`) — manifest di-fetch server-side; endpoint upstream me-redirect ke CDN dan segmennya berupa path RELATIF, di-resolve server-side sebelum diproxy (lihat bagian Keamanan) |
+| DramaBite | HLS `.m3u8` | HLS.js (`loadStream`) — TIDAK ada endpoint redirect terpisah, `/dramabite/episode` langsung mengembalikan URL manifest absolut, tapi segmen di dalamnya tetap path RELATIF — di-resolve server-side dengan mekanisme generik yang sama dengan ReelShort |
 
 `watch.js` membaca `data.streamType` dari `/api/watch`:
 - `streamType === "mp4"` → `loadMp4(data.videoUrl)` (URL langsung)
@@ -156,6 +160,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 | GoodShort | `goodshort.js` | — | `priv-api.anichin.bio` | HLS + AES-128 |
 | ShortMax | `shortmax.js` | — | `priv-api.anichin.bio` | HLS |
 | ReelShort | `reelshort.js` | — | `priv-api.anichin.bio` | HLS (segmen relatif) |
+| DramaBite | `dramabite.js` | — | `priv-api.anichin.bio` | HLS (manifest langsung, segmen relatif) |
 
 Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 
@@ -175,6 +180,17 @@ Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 > endpoint (`detail`, `allepisode`, `episode`) konsisten `locked:false` untuk
 > semua judul yang ditest — tidak ada inkonsistensi seperti ShortMax, tapi
 > adapter tetap mengikuti pola ambil status dari `allepisode()` demi konsistensi.
+
+> **Catatan DramaBite**: berbeda dari ReelShort/ShortMax, TIDAK ADA endpoint
+> `/hls` terpisah — `detail`/`allepisode`/`episode` langsung mengembalikan
+> `videoUrl` absolut ke manifest `.m3u8` di CDN `cdn-video.miniepisode.media`
+> (tanpa redirect). Segmen di dalam manifest tetap berupa PATH RELATIF seperti
+> ReelShort, jadi mekanisme resolve-relatif-terhadap-`upstream.url` di
+> `server.js` tetap dipakai (sudah generik, tidak perlu perubahan tambahan).
+> Endpoint `homepage` yang didokumentasikan ternyata TIDAK ADA di upstream
+> nyata (`{"error":"invalid action \"homepage\""}`) — diperlakukan sebagai
+> endpoint tidak tersedia, `latest()` fallback ke `foryou()` seperti provider
+> lain. Status locked konsisten `locked:false` di semua endpoint yang ditest.
 
 ## API Endpoints Backend
 
@@ -229,6 +245,7 @@ argument provider. Route tanpa provider (`/api/notifications`) tidak terimbas.
    - `v3.goodshort.com` (GoodShort segmen HLS)
    - `akamai-static.shorttv.live` (ShortMax segmen HLS)
    - `v-mps.crazymaplestudios.com` (ReelShort segmen HLS)
+   - `cdn-video.miniepisode.media` (DramaBite manifest & segmen HLS)
 
 Jika platform baru memakai CDN berbeda, tambahkan hostname-nya ke konstanta
 `HLS_ALLOWED_HOSTS` atau kondisi `isAllowedProxyHost()` di `server.js`.
