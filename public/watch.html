@@ -83,6 +83,17 @@
       <video id="videoPlayer" controls playsinline></video>
     </div>
 
+    <!-- Iklan: banner tipis — jeda alami setelah player, sebelum info drama.
+         Desktop pakai 468x60, mobile pakai 320x50 supaya tidak overflow di layar sempit. -->
+    <div class="ad-slot ad-slot--468x60 ad-desktop-only">
+      <span class="ad-slot-label">Iklan</span>
+      <div class="ad-slot-unit" data-ad-key="729bb31e0b9f7bb8378c26ce85b7df77" data-ad-w="468" data-ad-h="60"></div>
+    </div>
+    <div class="ad-slot ad-slot--320x50 ad-mobile-only">
+      <span class="ad-slot-label">Iklan</span>
+      <div class="ad-slot-unit" data-ad-key="ba8536d86edbb4e28bcc8cb32b37c074" data-ad-w="320" data-ad-h="50"></div>
+    </div>
+
     <div class="watch-info">
       <div id="dramaInfo">
         <div class="skeleton-title"></div>
@@ -100,6 +111,16 @@
         <div id="episodeStatus" class="ep-status"></div>
         <div id="episodeList" class="episode-grid"></div>
       </div>
+
+      <!-- Iklan: skyscraper (desktop) / rectangle (mobile) — di akhir halaman -->
+      <div class="ad-slot ad-slot--160x600 ad-desktop-only">
+        <span class="ad-slot-label">Iklan</span>
+        <div class="ad-slot-unit" data-ad-key="9c6a7735297d37e5defb1553a70d45b0" data-ad-w="160" data-ad-h="600"></div>
+      </div>
+      <div class="ad-slot ad-slot--160x300 ad-mobile-only">
+        <span class="ad-slot-label">Iklan</span>
+        <div class="ad-slot-unit" data-ad-key="5b3a5731971726ff611dc9559bea72aa" data-ad-w="160" data-ad-h="300"></div>
+      </div>
     </div>
   </main>
 
@@ -110,5 +131,12 @@
     import { icon } from "/js/icons.js";
     document.querySelector("#backBtn span").innerHTML = icon.back();
   </script>
+
+  <!-- Iklan: script latar belakang (social bar, native banner, direct-link sekali per sesi) -->
+  <script type="module" src="/js/ads.js"></script>
+  <script async src="https://pl28604584.effectivecpmnetwork.com/75/3f/1a/753f1a4d97804cd6df264ed87f12b620.js"></script>
+  <script async src="https://pl28604567.effectivecpmnetwork.com/f1/ea/cc/f1eaccf6e91c6d1883e3ecdd863bae31.js"></script>
+  <script async data-cfasync="false" src="https://pl28604570.effectivecpmnetwork.com/0eb91f935a13464cd586f8674a5e5fa9/invoke.js"></script>
+  <div id="container-0eb91f935a13464cd586f8674a5e5fa9"></div>
 </body>
 </html>
