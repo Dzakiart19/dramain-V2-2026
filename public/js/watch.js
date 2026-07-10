@@ -291,6 +291,30 @@ function updateMetaTags(drama) {
   setMeta("twitter:description", desc);
   setMeta("twitter:image",       image);
   setMeta("twitter:image:alt",   drama.title);
+
+  // Canonical — arahkan ke URL lengkap halaman ini (dengan provider/id/ep)
+  const canonical = document.getElementById("canonicalLink");
+  if (canonical) canonical.setAttribute("href", url);
+
+  // JSON-LD structured data — perbarui VideoObject dengan data drama aktual
+  const schemaEl = document.getElementById("schemaJsonLd");
+  if (schemaEl) {
+    schemaEl.textContent = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "VideoObject",
+      "name": title,
+      "description": desc,
+      "thumbnailUrl": image,
+      "uploadDate": new Date().toISOString().split("T")[0],
+      "contentUrl": url,
+      "embedUrl": url,
+      "publisher": {
+        "@type": "Organization",
+        "name": "Dramain Aja",
+        "url": `${BASE}/`
+      }
+    });
+  }
 }
 
 /* ─── Init ────────────────────────────────────────────────── */

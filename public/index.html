@@ -18,6 +18,7 @@
   <meta property="og:description" content="Nonton drama pendek tanpa iklan — DramaBox, PineDrama, GoodShort. Ribuan judul, gratis, langsung di browser." />
   <meta property="og:url" content="https://dramain-aja.web.app/" />
   <meta property="og:image" content="https://dramain-aja.web.app/og-image.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Dramain Aja — Nonton Drama Pendek Gratis" />
@@ -37,10 +38,30 @@
   <meta name="apple-mobile-web-app-title" content="Dramain Aja" />
   <meta name="application-name" content="Dramain Aja" />
 
-  <!-- ─── Favicon ──────────────────────────────────────────────────────────── -->
+  <!-- ─── Favicon & Manifest ───────────────────────────────────────────────── -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/manifest.json" />
   <link rel="canonical" href="https://dramain-aja.web.app/" />
+
+  <!-- ─── Structured Data ──────────────────────────────────────────────────── -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Dramain Aja",
+    "url": "https://dramain-aja.web.app/",
+    "description": "Nonton drama pendek tanpa iklan — DramaBox, PineDrama, GoodShort. Ribuan judul, gratis, langsung di browser.",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://dramain-aja.web.app/?q={search_term_string}"
+      },
+      "query-input": "required name=search_term_string"
+    }
+  }
+  </script>
 
   <link rel="stylesheet" href="/style.css" />
   <script src="/config.js"></script>

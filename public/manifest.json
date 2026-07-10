@@ -1,0 +1,23 @@
+{
+  "name": "Dramain Aja",
+  "short_name": "DramainAja",
+  "description": "Nonton drama pendek tanpa iklan — DramaBox, PineDrama, GoodShort. Ribuan judul, gratis, langsung di browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#141414",
+  "theme_color": "#141414",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
