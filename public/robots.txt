@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Jangan crawl halaman watch — konten dinamis via JS, tidak ada nilai SEO statis
+Disallow: /watch.html
+
+Sitemap: https://dramain-aja.web.app/sitemap.xml

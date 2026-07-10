@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Beranda — halaman utama yang sepenuhnya di-index -->
+  <url>
+    <loc>https://dramain-aja.web.app/</loc>
+    <lastmod>2026-07-10</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!--
+    Halaman watch (/watch.html?provider=...&id=...&ep=...)
+    tidak dimasukkan di sini karena kontennya dinamis dan dirender
+    sepenuhnya oleh JavaScript — Google Discover akan menemukannya
+    melalui tautan internal dari beranda.
+  -->
+
+</urlset>
