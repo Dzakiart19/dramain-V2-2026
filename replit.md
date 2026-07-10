@@ -78,6 +78,34 @@ tidak perlu diubah untuk menambah platform baru.
 
 **Sumber data asli:** `https://priv-api.anichin.bio/api/{provider}/{action}` — butuh `ANICHIN_API_KEY` (Replit Secret) di setiap request, HANYA dipanggil server-side (lihat `lib/providers/shortdramavid.js`). Key tidak pernah dikirim ke browser: route `/api/hls-stream` mengambil manifest upstream lalu me-rewrite URL segmen ke `/hls-proxy` (yang tidak butuh key), dan semua pesan error di-redact dari secret sebelum diteruskan ke client. Endpoint `notifications` tidak ada di API asli sehingga tetap fallback ke shortdramavid.xyz (gagal pun tidak masalah, hanya info status platform).
 
+## Setup & Deploy
+
+- **Instal semua dependency (root + Firebase Functions + Firebase CLI) sekali jalan:**
+  ```
+  ./install.sh
+  ```
+- **Jalankan lokal:** `npm start` (workflow Replit "Start application" juga memanggil ini).
+- **Deploy ke Firebase** (project id: `dramain-aja`):
+  ```
+  npx firebase login                         # sekali per environment
+  npx firebase deploy --only functions,hosting --project dramain-aja
+  ```
+  Arsitektur: satu `package.json` di root melayani dua entry point —
+  `server.js` (dipakai Replit lewat `npm start`, langsung `app.listen`) dan
+  `index.js` (dipakai Firebase Functions, membungkus Express app yang sama
+  lewat `onRequest`, TIDAK pernah listen sendiri). Firebase Hosting
+  di-`rewrite` penuh ke Cloud Function `app` itu (lihat `firebase.json`,
+  `functions.source` = root proyek supaya `server.js` & `lib/**` ikut
+  ter-deploy). Tidak ada logika yang diduplikasi antara jalur Replit dan
+  jalur Firebase.
+
+  Secret `ANICHIN_API_KEY` di Firebase **wajib** disetel lewat Secret
+  Manager (bukan `.env`), supaya konsisten dengan aturan "key hanya
+  dipakai server-side" di seluruh proyek ini:
+  ```
+  npx firebase functions:secrets:set ANICHIN_API_KEY --project dramain-aja
+  ```
+
 ## User Preferences
 - Tidak menampilkan konten iklan dari evacuateenclose.com
 - Kode harus mudah dipelihara dan mudah menambah platform baru

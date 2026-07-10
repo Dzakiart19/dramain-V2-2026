@@ -328,6 +328,14 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Dramain Aja running on http://0.0.0.0:${PORT}`);
-});
+// Saat dijalankan langsung (node server.js / npm start / workflow Replit),
+// buka port seperti biasa. Saat file ini di-require dari tempat lain
+// (misalnya functions/index.js untuk Firebase Cloud Functions), JANGAN
+// listen — biarkan runtime pemanggil yang mengatur request/response.
+if (require.main === module) {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Dramain Aja running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+module.exports = app;

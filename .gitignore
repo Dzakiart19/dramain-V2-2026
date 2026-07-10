@@ -1,0 +1,12 @@
+node_modules/
+npm-debug.log*
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log
+
+# Env
+.env
+.env.local
