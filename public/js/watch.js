@@ -55,6 +55,7 @@ function showCompleted() {
   playerLoader.style.display = "flex";
 }
 
+/** Putar stream HLS via HLS.js (DramaBox dan platform HLS lainnya). */
 function loadStream(videoUrl) {
   playerLoader.style.display = "flex";
   playerLoader.innerHTML = `<div class="spinner"></div><p class="loader-text">Memuat video...</p>`;
@@ -97,6 +98,21 @@ function loadStream(videoUrl) {
   }
 }
 
+/** Putar video MP4 langsung via native <video> (PineDrama & platform MP4 lainnya). */
+function loadMp4(videoUrl) {
+  playerLoader.style.display = "flex";
+  playerLoader.innerHTML = `<div class="spinner"></div><p class="loader-text">Memuat video...</p>`;
+
+  if (hls) { hls.destroy(); hls = null; }
+
+  video.src = videoUrl;
+  video.addEventListener("canplay", () => {
+    playerLoader.style.display = "none";
+    video.play().catch(() => showOpenExternal());
+  }, { once: true });
+  video.addEventListener("error", () => showOpenExternal(), { once: true });
+}
+
 /* ─── Episode ─────────────────────────────────────────────── */
 async function playEpisode(ep) {
   if (ep < 1) return;
@@ -132,8 +148,14 @@ async function playEpisode(ep) {
     }
 
     if (!data.videoUrl) throw new Error("URL stream tidak tersedia");
-    // Prefix BACKEND_URL supaya HLS.js fetch dari Replit, bukan dari Firebase Hosting
-    loadStream(backendUrl(data.videoUrl));
+
+    if (data.streamType === "mp4") {
+      // PineDrama: URL TikTok CDN langsung (MP4), tidak perlu prefix backend
+      loadMp4(data.videoUrl);
+    } else {
+      // DramaBox & platform HLS: videoUrl adalah path internal → prefix backend
+      loadStream(backendUrl(data.videoUrl));
+    }
   } catch (e) {
     playerLoader.innerHTML = `
       <div class="loader-card">
