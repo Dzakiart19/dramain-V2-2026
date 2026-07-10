@@ -199,7 +199,15 @@ provider baru — tidak perlu ubah frontend.
 
 ---
 
-## Step 3b — Daftarkan CDN di HLS proxy allowlist
+## Step 3b — Daftarkan provider di config (sudah otomatis tervalidasi)
+
+`getAdapter(platform, provider)` di `server.js` memvalidasi bahwa provider
+yang masuk dari request benar-benar ada di `PLATFORMS[platform].providers`.
+Tidak ada yang perlu dilakukan khusus — cukup pastikan provider id di array
+`providers` config sudah benar. Provider yang tidak terdaftar ditolak HTTP 400
+secara otomatis.
+
+## Step 3c — Daftarkan CDN di HLS proxy allowlist
 
 `/hls-proxy` di `server.js` hanya meneruskan request ke host yang ada di
 allowlist (`HLS_ALLOWED_HOSTS` + `isAllowedProxyHost()`). Host yang tidak

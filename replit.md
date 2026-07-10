@@ -162,11 +162,23 @@ Semua endpoint menerima `?platform=ID` — jika tidak diisi, fallback ke `DEFAUL
 
 ## Keamanan
 
-### HLS Proxy — allowlist CDN (`server.js`)
+### Provider validation (`server.js`)
 
-`/hls-proxy` hanya meneruskan request ke host yang ada di allowlist.
-Dua lapisan proteksi:
+`getAdapter(platform, provider)` memvalidasi bahwa provider yang dikirim client
+benar-benar terdaftar di `PLATFORMS[platform].providers`. Provider asing
+(tidak ada di config) langsung ditolak dengan HTTP 400 sebelum menyentuh
+adapter atau upstream API. Ini mencegah pihak luar memakai API key server
+untuk menjelajahi namespace provider arbitrer di upstream.
 
+Semua 14 route yang menerima `:provider` sudah memanggil `getAdapter` dengan
+argument provider. Route tanpa provider (`/api/notifications`) tidak terimbas.
+
+### HLS Proxy — stream error guard & allowlist CDN (`server.js`)
+
+`/hls-proxy` punya dua lapisan proteksi plus error handler streaming:
+
+0. **Stream error handler** — `upstream.body.on("error", ...)` mencegah
+   crash proses jika upstream disconnect di tengah transfer segmen `.ts`.
 1. **SSRF guard** — blokir localhost, loopback, dan seluruh range IP private
    (10/8, 172.16/12, 192.168/16, 169.254/16).
 2. **CDN allowlist** — hanya domain berikut yang diizinkan:

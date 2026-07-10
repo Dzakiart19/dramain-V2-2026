@@ -26,10 +26,14 @@ for (const [key, cfg] of Object.entries(PLATFORMS)) {
   adapters[key] = require(path.join(__dirname, cfg.adapterPath));
 }
 
-function getAdapter(platform = DEFAULT_PLATFORM) {
-  const a = adapters[platform];
-  if (!a) throw new Error(`Platform tidak ditemukan: ${platform}`);
-  return a;
+function getAdapter(platform = DEFAULT_PLATFORM, provider = null) {
+  const cfg = PLATFORMS[platform];
+  if (!cfg) throw new Error(`Platform tidak ditemukan: ${platform}`);
+  if (provider !== null) {
+    const valid = cfg.providers.some((p) => p.id === provider);
+    if (!valid) throw new Error(`Provider tidak dikenal untuk platform ${platform}: ${provider}`);
+  }
+  return adapters[platform];
 }
 
 // ─── Helper ────────────────────────────────────────────────────────────────
@@ -66,7 +70,7 @@ app.get("/api/search", async (req, res) => {
   const { q, provider, platform = DEFAULT_PLATFORM } = req.query;
   if (!q) return fail(res, "Parameter q wajib diisi", 400);
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider || null);
     const results = await adapter.search(q, provider || null);
     ok(res, results);
   } catch (err) {
@@ -79,7 +83,7 @@ app.get("/api/drama/:provider/:id", async (req, res) => {
   const { provider, id } = req.params;
   const { platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.detail(provider, id);
     ok(res, data);
   } catch (err) {
@@ -94,7 +98,7 @@ app.get("/api/watch/:provider/:id", async (req, res) => {
   const { provider, id } = req.params;
   const { ep = 1, platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.stream(provider, id, Number(ep));
     ok(res, data);
   } catch (err) {
@@ -110,7 +114,7 @@ app.get("/api/hls-stream/:provider/:id", async (req, res) => {
   const { provider, id } = req.params;
   const { ep = 1, platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const manifestUrl = adapter.hlsManifestUrl(provider, id, Number(ep));
 
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36";
@@ -143,7 +147,7 @@ app.get("/api/languages/:provider", async (req, res) => {
   const { provider } = req.params;
   const { platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.languages(provider);
     ok(res, data);
   } catch (err) {
@@ -156,7 +160,7 @@ app.get("/api/allepisode/:provider/:id", async (req, res) => {
   const { provider, id } = req.params;
   const { platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.allepisode(provider, id);
     ok(res, data);
   } catch (err) {
@@ -169,7 +173,7 @@ app.get("/api/subtitles/:provider/:id", async (req, res) => {
   const { provider, id } = req.params;
   const { ep = 1, platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.subtitles(provider, id, Number(ep));
     ok(res, data);
   } catch (err) {
@@ -273,6 +277,11 @@ app.get("/hls-proxy", async (req, res) => {
     if (isTS) res.setHeader("Content-Type", "video/mp2t");
     else res.setHeader("Content-Type", contentType);
 
+    upstream.body.on("error", (streamErr) => {
+      console.error("[HLS Proxy] Stream error:", streamErr.message);
+      if (!res.headersSent) res.status(500).send("Stream error");
+      else res.destroy();
+    });
     upstream.body.pipe(res);
   } catch (err) {
     console.error("[HLS Proxy Error]", err.message);
@@ -285,7 +294,7 @@ app.get("/api/browse/:provider", async (req, res) => {
   const { provider } = req.params;
   const { platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.browse(provider);
     ok(res, data);
   } catch (err) {
@@ -298,7 +307,7 @@ app.get("/api/trending/:provider", async (req, res) => {
   const { provider } = req.params;
   const { platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.trending(provider);
     ok(res, data);
   } catch (err) {
@@ -311,7 +320,7 @@ app.get("/api/latest/:provider", async (req, res) => {
   const { provider } = req.params;
   const { platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.latest(provider);
     ok(res, data);
   } catch (err) {
@@ -324,7 +333,7 @@ app.get("/api/more/:provider", async (req, res) => {
   const { provider } = req.params;
   const { q = "love", platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.search(q, provider);
     ok(res, data);
   } catch (err) {
@@ -337,7 +346,7 @@ app.get("/api/vip/:provider", async (req, res) => {
   const { provider } = req.params;
   const { platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.vip(provider);
     ok(res, data);
   } catch (err) {
@@ -350,7 +359,7 @@ app.get("/api/dubindo/:provider", async (req, res) => {
   const { provider } = req.params;
   const { platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.dubindo(provider);
     ok(res, data);
   } catch (err) {
@@ -363,7 +372,7 @@ app.get("/api/foryou/:provider", async (req, res) => {
   const { provider } = req.params;
   const { page = 1, platform = DEFAULT_PLATFORM } = req.query;
   try {
-    const adapter = getAdapter(platform);
+    const adapter = getAdapter(platform, provider);
     const data = await adapter.foryou(provider, Number(page));
     ok(res, data);
   } catch (err) {
