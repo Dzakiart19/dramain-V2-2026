@@ -4,6 +4,9 @@ import { icon } from "./icons.js";
 
 /* ─── State ───────────────────────────────────────────────── */
 let currentProvider = "";
+let currentPlatform = "";
+// map: provider id → platform id (diisi saat init dari /api/config)
+const providerPlatformMap = {};
 let foryouPage = 1;
 let foryouLoading = false;
 
@@ -32,28 +35,32 @@ const notifBar       = $("notifications");
  * entri di array ini, tidak perlu ubah logika render.
  */
 const ROWS = [
-  { id: "trending", title: "Trending", endpoint: (p) => `/api/trending/${p}` },
-  { id: "latest",   title: "Terbaru",   endpoint: (p) => `/api/latest/${p}` },
-  { id: "dubindo",  title: "Sulih Suara Indonesia", endpoint: (p) => `/api/dubindo/${p}` },
-  { id: "vip",      title: "VIP",       endpoint: (p) => `/api/vip/${p}` },
+  { id: "trending", title: "Trending", endpoint: (p, plt) => `/api/trending/${p}?platform=${plt}` },
+  { id: "latest",   title: "Terbaru",   endpoint: (p, plt) => `/api/latest/${p}?platform=${plt}` },
+  { id: "dubindo",  title: "Sulih Suara Indonesia", endpoint: (p, plt) => `/api/dubindo/${p}?platform=${plt}` },
+  { id: "vip",      title: "VIP",       endpoint: (p, plt) => `/api/vip/${p}?platform=${plt}` },
 ];
 
 /* ─── Init ────────────────────────────────────────────────── */
 async function init() {
   try {
     const config = await api("/api/config");
-    const platform = config[0];
 
-    platform.providers.forEach((p) => {
-      const opt = document.createElement("option");
-      opt.value = p.id;
-      opt.textContent = p.label;
-      providerFilter.appendChild(opt);
+    // Kumpulkan semua provider dari semua platform ke dalam satu dropdown
+    config.forEach((platform) => {
+      platform.providers.forEach((p) => {
+        providerPlatformMap[p.id] = platform.id;
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.label;
+        providerFilter.appendChild(opt);
+      });
     });
 
-    currentProvider = platform.providers[0].id;
+    currentProvider = config[0].providers[0].id;
+    currentPlatform = providerPlatformMap[currentProvider];
     loadNotifications();
-    loadHome(currentProvider);
+    loadHome(currentProvider, currentPlatform);
   } catch (e) {
     showToast("Gagal memuat konfigurasi: " + e.message);
   }
@@ -61,7 +68,7 @@ async function init() {
 
 async function loadNotifications() {
   try {
-    const notifs = await api("/api/notifications");
+    const notifs = await api(`/api/notifications?platform=${currentPlatform}`);
     if (!notifs?.length) return;
     const offline = notifs.filter((n) => n.type === "offline" || n.type === "warning" || n.type === "down");
     if (offline.length) {
@@ -88,7 +95,8 @@ function renderHero(d) {
       </div>
     </div>`;
   $("heroPlayBtn").addEventListener("click", () => {
-    window.location.href = `/watch.html?provider=${d.provider}&id=${d.id}&ep=1`;
+    const plt = providerPlatformMap[d.provider] || currentPlatform;
+    window.location.href = `/watch.html?provider=${d.provider}&id=${d.id}&ep=1&platform=${plt}`;
   });
   $("heroInfoBtn").addEventListener("click", () => openModal(d.id, d.provider));
 }
@@ -119,13 +127,13 @@ function scrollRow(track, dir) {
   track.scrollBy({ left: dir * track.clientWidth * 0.9, behavior: "smooth" });
 }
 
-async function loadRow(row, provider) {
+async function loadRow(row, provider, platform) {
   const section = ensureRowEl(row);
   const track = section.querySelector("[data-track]");
   track.innerHTML = skeletonCards(8);
 
   try {
-    const items = await api(row.endpoint(provider));
+    const items = await api(row.endpoint(provider, platform));
     if (!items?.length) {
       section.classList.add("hidden");
       return;
@@ -168,7 +176,7 @@ async function loadForYou(provider, append = false) {
   moreBtn.disabled = true;
 
   try {
-    const data = await api(`/api/foryou/${provider}?page=${foryouPage}`);
+    const data = await api(`/api/foryou/${provider}?page=${foryouPage}&platform=${currentPlatform}`);
     const html = data.items.map(cardHTML).join("");
     if (append) grid.insertAdjacentHTML("beforeend", html);
     else grid.innerHTML = html;
@@ -185,19 +193,19 @@ async function loadForYou(provider, append = false) {
 }
 
 /* ─── Home — muat hero + semua baris kategori ───────────────── */
-async function loadHome(provider) {
+async function loadHome(provider, platform) {
   foryouPage = 1;
   rowsRoot.innerHTML = "";
 
   try {
-    const trending = await api(`/api/trending/${provider}`);
+    const trending = await api(`/api/trending/${provider}?platform=${platform}`);
     renderHero(trending?.[0]);
   } catch {
     renderHero(null);
   }
 
   for (const row of ROWS) {
-    loadRow(row, provider);
+    loadRow(row, provider, platform);
   }
   loadForYou(provider, false);
 }
@@ -207,6 +215,7 @@ async function doSearch(q) {
   q = q.trim();
   if (!q) return;
   const provider = providerFilter.value || currentProvider;
+  const platform = providerPlatformMap[provider] || currentPlatform;
 
   homeSection.classList.add("hidden");
   searchSection.classList.remove("hidden");
@@ -214,7 +223,7 @@ async function doSearch(q) {
   searchResults.innerHTML = skeletonCards(10);
 
   try {
-    const results = await api(`/api/search?q=${encodeURIComponent(q)}&provider=${provider}`);
+    const results = await api(`/api/search?q=${encodeURIComponent(q)}&provider=${provider}&platform=${platform}`);
     if (!results?.length) {
       searchResults.innerHTML = emptyState("Tidak ada hasil", "Coba kata kunci lain");
       return;
@@ -277,8 +286,10 @@ async function openModal(id, provider) {
   document.body.classList.add("no-scroll");
   modalContent.innerHTML = `<div class="modal-loading"><div class="spinner"></div></div>`;
 
+  const platform = providerPlatformMap[provider] || currentPlatform;
+
   try {
-    const d = await api(`/api/drama/${provider}/${id}`);
+    const d = await api(`/api/drama/${provider}/${id}?platform=${platform}`);
     const cover = d.cover ? `<img src="${esc(d.cover)}" alt="${esc(d.title)}" />` : "";
     const totalEp = d.totalEpisodes || "?";
 
@@ -299,7 +310,7 @@ async function openModal(id, provider) {
       </div>`;
 
     $("watchNowBtn").addEventListener("click", () => {
-      window.location.href = `/watch.html?provider=${provider}&id=${id}&ep=1`;
+      window.location.href = `/watch.html?provider=${provider}&id=${id}&ep=1&platform=${platform}`;
     });
   } catch (e) {
     modalContent.innerHTML = `<div class="modal-error">Gagal memuat detail: ${esc(e.message)}</div>`;
@@ -312,6 +323,15 @@ function closeModal() {
 }
 
 /* ─── Events ──────────────────────────────────────────────── */
+providerFilter.addEventListener("change", () => {
+  const selected = providerFilter.value;
+  if (!selected) return;
+  currentProvider = selected;
+  currentPlatform = providerPlatformMap[selected] || currentPlatform;
+  foryouPage = 1;
+  loadHome(currentProvider, currentPlatform);
+});
+
 searchToggle.addEventListener("click", () => {
   searchBar.classList.add("is-open");
   searchInput.focus();

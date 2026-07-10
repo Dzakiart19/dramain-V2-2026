@@ -4,8 +4,10 @@ import { icon } from "./icons.js";
 
 /* ─── Parse URL params ────────────────────────────────────── */
 const params    = new URLSearchParams(location.search);
-const PROVIDER  = params.get("provider") || "pinedrama";
+const PROVIDER  = params.get("provider") || "dramabox";
 const ID        = params.get("id") || "";
+// Jika platform tidak ada di URL, coba tebak dari provider (fallback aman)
+const PLATFORM  = params.get("platform") || (PROVIDER === "pinedrama" ? "pinedrama" : "dramabox");
 let   currentEp = Number(params.get("ep")) || 1;
 let   totalEpisodesCount = 0;
 let   episodesData = [];
@@ -130,13 +132,13 @@ async function playEpisode(ep) {
   const activeBtn = document.querySelector(`.ep-btn[data-ep="${ep}"]`);
   if (activeBtn) activeBtn.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
-  history.replaceState(null, "", `?provider=${PROVIDER}&id=${ID}&ep=${ep}`);
+  history.replaceState(null, "", `?provider=${PROVIDER}&id=${ID}&ep=${ep}&platform=${PLATFORM}`);
 
   try {
     playerLoader.style.display = "flex";
     playerLoader.innerHTML = `<div class="spinner"></div><p class="loader-text">Memuat episode ${ep}...</p>`;
 
-    const data = await api(`/api/watch/${PROVIDER}/${ID}?ep=${ep}`);
+    const data = await api(`/api/watch/${PROVIDER}/${ID}?ep=${ep}&platform=${PLATFORM}`);
 
     if (data.locked) {
       playerLoader.innerHTML = `
@@ -245,7 +247,7 @@ async function init() {
   document.title = "Memuat... — Dramain Aja";
 
   try {
-    const d = await api(`/api/drama/${PROVIDER}/${ID}`);
+    const d = await api(`/api/drama/${PROVIDER}/${ID}?platform=${PLATFORM}`);
     document.title = `${d.title} — Dramain Aja`;
 
     dramaInfo.innerHTML = `
