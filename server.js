@@ -115,7 +115,27 @@ app.get("/api/hls-stream/:provider/:id", async (req, res) => {
   const { ep = 1, platform = DEFAULT_PLATFORM } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const manifestUrl = adapter.hlsManifestUrl(provider, id, Number(ep));
+    // await aman dipakai walau adapter mengembalikan string biasa (bukan
+    // Promise) — beberapa platform (idrama) perlu fetch upstream dulu untuk
+    // dapat manifest URL yang di-sign dinamis, jadi hlsManifestUrl bisa async.
+    const manifestUrl = await adapter.hlsManifestUrl(provider, id, Number(ep));
+
+    // Validasi sama seperti /hls-proxy sebelum fetch — beberapa adapter
+    // (idrama) mengembalikan manifest URL yang di-generate DINAMIS oleh
+    // upstream (bukan URL statis yang kita bangun sendiri), jadi harus
+    // diperlakukan sebagai input tidak terpercaya: blokir jaringan privat
+    // (SSRF) dan hanya izinkan host yang ada di allowlist CDN.
+    let manifestTarget;
+    try { manifestTarget = new URL(manifestUrl); } catch {
+      return res.status(500).send("Manifest URL tidak valid dari adapter");
+    }
+    if (manifestTarget.protocol !== "https:" && manifestTarget.protocol !== "http:") {
+      return res.status(500).send("Protokol manifest tidak diizinkan");
+    }
+    if (isPrivateHost(manifestTarget.hostname) || !isAllowedProxyHost(manifestTarget.hostname)) {
+      console.warn("[HLS Stream] Manifest host ditolak:", manifestTarget.hostname);
+      return res.status(403).send("Host manifest tidak diizinkan");
+    }
 
     const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/138.0.0.0 Safari/537.36";
     const upstream = await fetch(manifestUrl, { headers: { "User-Agent": UA } });
@@ -127,10 +147,11 @@ app.get("/api/hls-stream/:provider/:id", async (req, res) => {
     const text = await upstream.text();
     const rewritten = text.split("\n").map((line) => {
       line = line.trim();
-      if (line.startsWith("http://") || line.startsWith("https://")) {
-        return `/hls-proxy?url=${encodeURIComponent(line)}`;
-      }
-      return line;
+      // Beberapa upstream (idrama) mengembalikan URL segmen RELATIF (mis.
+      // "/abc/def.ts?ts=..&secret=.."), bukan absolut — harus di-resolve
+      // dulu terhadap manifestUrl sebelum diproxy, atau browser akan
+      // salah resolve relatif terhadap URL halaman /api/hls-stream.
+      return rewriteManifestLine(line, manifestUrl);
     }).join("\n");
 
     res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
@@ -185,6 +206,7 @@ app.get("/api/subtitles/:provider/:id", async (req, res) => {
 // Tambah entry baru di sini jika platform baru memakai CDN berbeda.
 const HLS_ALLOWED_HOSTS = new Set([
   "priv-api.anichin.bio",
+  "v-a.idrama.video", // CDN video HLS untuk idrama
   // CDN TikTok (PineDrama) — semua sub-domain *.tiktokcdn.com & *.tiktokv.com
 ]);
 
@@ -195,6 +217,25 @@ function isAllowedProxyHost(hostname) {
   if (hostname.endsWith(".tiktokv.com"))   return true;
   if (hostname.endsWith(".tiktokcdn-us.com")) return true;
   return false;
+}
+
+// Rewrite satu baris manifest .m3u8: URL absolut (http/https) ATAU URL
+// relatif (mis. "/abc/def.ts?ts=..") di-resolve dulu terhadap `baseUrl`
+// (URL manifest itu sendiri), lalu dibungkus /hls-proxy?url=... supaya
+// browser tidak perlu — dan tidak bisa — akses CDN upstream langsung.
+// Baris non-URL (tag M3U8 seperti #EXTINF, atau baris kosong) dikembalikan
+// utuh tanpa diubah.
+function rewriteManifestLine(line, baseUrl) {
+  if (!line || line.startsWith("#")) return line;
+  if (line.startsWith("http://") || line.startsWith("https://")) {
+    return `/hls-proxy?url=${encodeURIComponent(line)}`;
+  }
+  try {
+    const resolved = new URL(line, baseUrl).toString();
+    return `/hls-proxy?url=${encodeURIComponent(resolved)}`;
+  } catch {
+    return line;
+  }
 }
 
 // Blokir target yang mengarah ke jaringan internal (SSRF guard).
@@ -261,13 +302,10 @@ app.get("/hls-proxy", async (req, res) => {
     if (isM3U8) {
       res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
       const text = await upstream.text();
-      // Rewrite setiap baris URL absolut (http/https) → /hls-proxy?url=...
+      // Rewrite setiap baris URL (absolut ATAU relatif) → /hls-proxy?url=...
       const rewritten = text.split("\n").map((line) => {
         line = line.trim();
-        if (line.startsWith("http://") || line.startsWith("https://")) {
-          return `/hls-proxy?url=${encodeURIComponent(line)}`;
-        }
-        return line;
+        return rewriteManifestLine(line, target.toString());
       }).join("\n");
       return res.send(rewritten);
     }
