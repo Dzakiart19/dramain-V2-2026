@@ -198,7 +198,8 @@ app.get("/api/subtitles/:provider/:id", async (req, res) => {
 const HLS_ALLOWED_HOSTS = new Set([
   "priv-api.anichin.bio",
   // CDN TikTok (PineDrama) — semua sub-domain *.tiktokcdn.com & *.tiktokv.com
-  "v3.goodshort.com",   // CDN segmen HLS GoodShort
+  "v3.goodshort.com",              // CDN segmen HLS GoodShort
+  "akamai-static.shorttv.live",    // CDN segmen HLS ShortMax
 ]);
 
 function isAllowedProxyHost(hostname) {
