@@ -225,10 +225,14 @@ const HLS_ALLOWED_HOSTS = new Set([
   "cdn-video.miniepisode.media",   // CDN manifest & segmen HLS DramaBite
 ]);
 
+// CDN DramaWave — semua sub-domain *.mydramawave.com (video-v1..vN, static-v1, dst)
+
 function isAllowedProxyHost(hostname) {
   if (HLS_ALLOWED_HOSTS.has(hostname)) return true;
   // CDN DramaBox — semua sub-domain *.dramaboxdb.com (mis: hwzthls.dramaboxdb.com)
   if (hostname.endsWith(".dramaboxdb.com")) return true;
+  // CDN DramaWave — semua sub-domain *.mydramawave.com (video-v1..vN, static-v1, dst)
+  if (hostname.endsWith(".mydramawave.com")) return true;
   // Izinkan seluruh sub-domain TikTok CDN (PineDrama)
   if (hostname.endsWith(".tiktokcdn.com")) return true;
   if (hostname.endsWith(".tiktokv.com"))   return true;
