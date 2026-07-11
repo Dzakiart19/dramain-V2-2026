@@ -6,7 +6,7 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 ## Stack
 - **Backend**: Node.js + Express
 - **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js
-- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort, DramaBite) atau MP4 native (PineDrama)
+- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort, DramaBite, DramaWave) atau MP4 native (PineDrama, MoboReels)
 
 ## Struktur Folder
 
@@ -22,7 +22,9 @@ Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
 │       ├── goodshort.js      # Adapter GoodShort (upstream: priv-api.anichin.bio, HLS + AES-128)
 │       ├── shortmax.js       # Adapter ShortMax (upstream: priv-api.anichin.bio, HLS)
 │       ├── reelshort.js      # Adapter ReelShort (upstream: priv-api.anichin.bio, HLS, segmen relatif)
-│       └── dramabite.js      # Adapter DramaBite (upstream: priv-api.anichin.bio, HLS, manifest langsung tanpa redirect)
+│       ├── dramabite.js      # Adapter DramaBite (upstream: priv-api.anichin.bio, HLS, manifest langsung tanpa redirect)
+│       ├── moboreels.js      # Adapter MoboReels (upstream: priv-api.anichin.bio, MP4, tanpa allepisode terpisah)
+│       └── dramawave.js      # Adapter DramaWave (upstream: priv-api.anichin.bio, HLS, episode list dari /detail)
 ├── public/
 │   ├── index.html            # Halaman home (hero + baris kategori + pencarian)
 │   ├── watch.html            # Halaman player video (auto-play episode berikutnya)
@@ -51,8 +53,8 @@ Proyek ini membedakan dua level:
 
 | Level | Contoh | Dikelola di |
 |-------|--------|-------------|
-| **Platform** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite` | `lib/config.js` → `PLATFORMS` |
-| **Provider** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite` | tiap platform punya array `providers` |
+| **Platform** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite`, `moboreels`, `dramawave` | `lib/config.js` → `PLATFORMS` |
+| **Provider** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite`, `moboreels`, `dramawave` | tiap platform punya array `providers` |
 
 Satu platform dipetakan ke satu adapter (`adapterPath`). Satu adapter bisa
 melayani beberapa provider jika upstream API-nya mendukung path-segment berbeda.
@@ -87,6 +89,8 @@ providerPlatformMap["goodshort"] = "goodshort"
 providerPlatformMap["shortmax"]  = "shortmax"
 providerPlatformMap["reelshort"] = "reelshort"
 providerPlatformMap["dramabite"] = "dramabite"
+providerPlatformMap["moboreels"] = "moboreels"
+providerPlatformMap["dramawave"] = "dramawave"
 ```
 
 Lalu setiap API call membawa platform yang tepat:
@@ -112,6 +116,8 @@ iterasi seluruhnya dan mengisi satu `<select>` gabungan:
 [ ShortMax ]
 [ ReelShort ]
 [ DramaBite ]
+[ MoboReels ]
+[ DramaWave ]
 ```
 
 Saat user ganti pilihan, `currentProvider` dan `currentPlatform` diperbarui,
@@ -133,7 +139,7 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 
 | Key | Nilai | Dipakai oleh |
 |-----|-------|-------------|
-| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"` / `"reelshort"` / `"dramabite"`) | `home.js` — restore platform saat kembali ke home |
+| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"` / `"reelshort"` / `"dramabite"` / `"moboreels"` / `"dramawave"`) | `home.js` — restore platform saat kembali ke home |
 | `dramain_autoplay` | `"on"` / `"off"` | `watch.js` — ingat preferensi putar otomatis |
 
 ### Tipe stream per platform
@@ -146,6 +152,8 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 | ShortMax | HLS `.m3u8` | HLS.js (`loadStream`) — manifest di-fetch server-side, `api_key` tidak pernah ke browser |
 | ReelShort | HLS `.m3u8` | HLS.js (`loadStream`) — manifest di-fetch server-side; endpoint upstream me-redirect ke CDN dan segmennya berupa path RELATIF, di-resolve server-side sebelum diproxy (lihat bagian Keamanan) |
 | DramaBite | HLS `.m3u8` | HLS.js (`loadStream`) — TIDAK ada endpoint redirect terpisah, `/dramabite/episode` langsung mengembalikan URL manifest absolut, tapi segmen di dalamnya tetap path RELATIF — di-resolve server-side dengan mekanisme generik yang sama dengan ReelShort |
+| MoboReels | MP4 (CDN sign params) | `<video src>` native (`loadMp4`) — URL mengandung param CDN sign (`expire`, dst), jangan pernah di-cache |
+| DramaWave | HLS `.m3u8` | HLS.js (`loadStream`) — episode list & subtitle sudah lengkap di `/detail` (tidak perlu endpoint `allepisode` terpisah), `videoUrl` per episode diambil fresh dari `/episode`, tetap diproxy lewat `/api/hls-stream` walau tidak mengandung `api_key` |
 
 `watch.js` membaca `data.streamType` dari `/api/watch`:
 - `streamType === "mp4"` → `loadMp4(data.videoUrl)` (URL langsung)
@@ -161,6 +169,8 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 | ShortMax | `shortmax.js` | — | `priv-api.anichin.bio` | HLS |
 | ReelShort | `reelshort.js` | — | `priv-api.anichin.bio` | HLS (segmen relatif) |
 | DramaBite | `dramabite.js` | — | `priv-api.anichin.bio` | HLS (manifest langsung, segmen relatif) |
+| MoboReels | `moboreels.js` | — | `priv-api.anichin.bio` | MP4 |
+| DramaWave | `dramawave.js` | — | `priv-api.anichin.bio` | HLS |
 
 Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 
@@ -191,6 +201,30 @@ Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
 > nyata (`{"error":"invalid action \"homepage\""}`) — diperlakukan sebagai
 > endpoint tidak tersedia, `latest()` fallback ke `foryou()` seperti provider
 > lain. Status locked konsisten `locked:false` di semua endpoint yang ditest.
+
+> **Catatan MoboReels**: platform MP4 (bukan HLS) — TIDAK ADA endpoint
+> `allepisode` terpisah, daftar episode diambil dari `detail`. `videoUrl`
+> mengandung CDN sign params (`expire`, dst) yang kedaluwarsa — jangan pernah
+> di-cache, selalu fetch fresh saat `stream()` dipanggil. Normalisasi
+> `duration` sempat punya bug precedence `??` dicampur ternary — sudah
+> diperbaiki jadi explicit null-check terpisah; jangan gabungkan lagi dua
+> operator itu dalam satu ekspresi.
+
+> **Catatan DramaWave**: endpoint `/detail` sudah mengembalikan `episodes[]`
+> lengkap dengan `number`, `title`, `videoUrl`, `hlsUrl`, `locked`, dan
+> `subtitles[]` ter-embed, dan field `totalEps`-nya AKURAT (sinkron dengan
+> `episodes.length` dan video yang benar-benar ada) — beda dari kasus FlareFlow
+> yang ditolak karena `totalEps`-nya salah. Karena itu `allepisode()` dan
+> `subtitles()` sengaja bersumber dari `/detail`, bukan endpoint `/allepisode`
+> mentah yang juga ada di upstream (shape-nya lebih kasar, tidak menambah info).
+> `videoUrl` per episode dari `/episode` adalah URL CDN absolut
+> (`video-vN.mydramawave.com`) yang TIDAK mengandung `api_key` — tapi tetap
+> diproxy lewat `/api/hls-stream` untuk konsisten dengan provider HLS lain
+> dan menyembunyikan detail CDN upstream dari response client. Tidak ada
+> endpoint `latest`, `vip`, `dubindo`, `subtitles` (standalone), atau
+> `notifications` di upstream — semuanya fallback graceful (`[]` atau reuse
+> `foryou`). Episode out-of-range dibalas 500 oleh upstream (bukan 200 silent),
+> ditangkap via try/catch di `checkEpisodeLock()` jadi `locked:true`.
 
 ## API Endpoints Backend
 
@@ -246,6 +280,7 @@ argument provider. Route tanpa provider (`/api/notifications`) tidak terimbas.
    - `akamai-static.shorttv.live` (ShortMax segmen HLS)
    - `v-mps.crazymaplestudios.com` (ReelShort segmen HLS)
    - `cdn-video.miniepisode.media` (DramaBite manifest & segmen HLS)
+   - `*.mydramawave.com` (DramaWave — video-v1..vN, static-v1, dst)
 
 Jika platform baru memakai CDN berbeda, tambahkan hostname-nya ke konstanta
 `HLS_ALLOWED_HOSTS` atau kondisi `isAllowedProxyHost()` di `server.js`.
