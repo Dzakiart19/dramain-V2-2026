@@ -296,6 +296,7 @@ Pastikan:
 | `server.js` routes | Sudah generic via `getAdapter(platform)` — tambah route baru hanya jika platform punya fitur benar-benar baru |
 | `lib/fetcher.js` | HTTP client shared dengan retry/timeout/redaction — reuse, jangan buat wrapper baru |
 | Push history (`home.js` — search/modal/watch episode) | Sudah generic per-view, dipicu DOM event bukan platform id — otomatis berlaku untuk platform baru tanpa perubahan apapun |
+| Riwayat tontonan / "Lanjutkan Menonton" (`public/js/history.js`) | 100% client-side (localStorage), kunci entri = `provider+id` dan setiap entri menyimpan `platform` aslinya sendiri — otomatis berlaku untuk platform baru tanpa perubahan apapun, asal `provider` yang dikirim `watch.js` tetap id yang benar (lihat aturan provider id unik) |
 
 **Yang wajib diubah di `server.js` untuk platform HLS baru:**
 Tambah CDN hostname ke `HLS_ALLOWED_HOSTS` / `isAllowedProxyHost()`.
