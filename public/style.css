@@ -261,6 +261,32 @@ header.is-scrolled { background: var(--bg2); box-shadow: 0 2px 12px rgba(0,0,0,0
   background-size: 200% 100%; animation: shimmer 1.4s infinite;
 }
 
+/* ─── Riwayat / Lanjutkan Menonton ───────────────────────── */
+.history-card .platform-badge {
+  position: absolute; top: 8px; left: 8px;
+  background: rgba(0,0,0,0.75);
+  color: var(--text2); font-size: 0.62rem; font-weight: 700;
+  padding: 3px 7px; border-radius: 3px; letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.history-remove {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  width: 26px; height: 26px; border-radius: 50%; border: none;
+  background: rgba(0,0,0,0.6); color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: 0; transition: opacity 0.15s, background 0.15s;
+}
+.drama-card:hover .history-remove,
+.history-remove:focus-visible { opacity: 1; }
+.history-remove:hover { background: rgba(0,0,0,0.85); }
+.history-remove svg { width: 13px; height: 13px; }
+
+.history-progress {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 4px;
+  background: rgba(255,255,255,0.18);
+}
+.history-progress-bar { height: 100%; background: var(--accent); }
+
 /* ─── Search title / section ─────────────────────────────── */
 #searchSection { padding: 100px 0 24px; }
 

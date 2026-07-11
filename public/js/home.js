@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { esc, showToast, skeletonCards } from "./utils.js";
 import { icon } from "./icons.js";
+import { getHistory, removeEntry } from "./history.js";
 
 /* ─── State ───────────────────────────────────────────────── */
 let currentProvider = "";
@@ -109,6 +110,88 @@ function renderHero(d) {
   $("heroInfoBtn").addEventListener("click", () => openModal(d.id, d.provider));
 }
 
+/* ─── Lanjutkan Menonton — dari riwayat localStorage, tidak fetch ────
+ * Setiap kartu MENYIMPAN provider+platform aslinya sendiri (saat drama itu
+ * ditonton) dan WAJIB dipakai utuh saat resume — bukan currentProvider/
+ * currentPlatform yang sedang dipilih di dropdown. Ini mencegah drama yang
+ * ditonton di platform A "nyasar" dibuka lewat adapter platform B.
+ */
+function historyCardHTML(h) {
+  const cover = h.cover
+    ? `<img src="${esc(h.cover)}" alt="${esc(h.title)}" loading="lazy" />`
+    : `<div class="cover-fallback">${icon.film()}</div>`;
+  const pct = h.durationSec > 0
+    ? Math.min(100, Math.round((h.positionSec / h.durationSec) * 100))
+    : 0;
+  const epLabel = h.totalEpisodes ? `Ep ${h.episode}/${h.totalEpisodes}` : `Ep ${h.episode}`;
+  return `
+    <div class="drama-card history-card" data-provider="${esc(h.provider)}" data-id="${esc(h.id)}" data-platform="${esc(h.platform)}" data-ep="${h.episode}" tabindex="0">
+      <button class="history-remove" data-remove aria-label="Hapus dari riwayat" type="button">${icon.close()}</button>
+      <div class="cover-wrap">
+        ${cover}
+        <span class="platform-badge">${esc(h.platform)}</span>
+        <span class="ep-badge">${esc(epLabel)}</span>
+        ${pct > 0 ? `<div class="history-progress"><div class="history-progress-bar" style="width:${pct}%"></div></div>` : ""}
+        <div class="card-hover"><div class="card-hover-play">${icon.playCircle()}</div></div>
+      </div>
+      <div class="card-body"><div class="card-title">${esc(h.title)}</div></div>
+    </div>`;
+}
+
+function bindHistoryCardClicks(root) {
+  root.querySelectorAll(".history-card").forEach((card) => {
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("[data-remove]")) return;
+      const { provider, id, platform, ep } = card.dataset;
+      window.location.href = `/watch.html?provider=${provider}&id=${id}&ep=${ep}&platform=${platform}`;
+    });
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.target.closest("[data-remove]")) card.click();
+    });
+    const removeBtn = card.querySelector("[data-remove]");
+    removeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeEntry(card.dataset.provider, card.dataset.id);
+      renderContinueRow();
+    });
+  });
+}
+
+function renderContinueRow() {
+  const list = getHistory();
+  let section = document.getElementById("row-continue");
+
+  if (!list.length) {
+    if (section) section.classList.add("hidden");
+    return;
+  }
+
+  if (!section) {
+    section = document.createElement("section");
+    section.className = "row row-continue";
+    section.id = "row-continue";
+    section.innerHTML = `
+      <div class="row-header"><h2>Lanjutkan Menonton</h2></div>
+      <div class="row-viewport">
+        <button class="row-nav row-nav-prev" aria-label="Sebelumnya">${icon.chevronLeft()}</button>
+        <div class="row-track" data-track></div>
+        <button class="row-nav row-nav-next" aria-label="Berikutnya">${icon.chevronRight()}</button>
+      </div>`;
+    const track = section.querySelector("[data-track]");
+    section.querySelector(".row-nav-prev").addEventListener("click", () => scrollRow(track, -1));
+    section.querySelector(".row-nav-next").addEventListener("click", () => scrollRow(track, 1));
+  }
+
+  // Selalu paling atas — rowsRoot.innerHTML dikosongkan tiap ganti provider,
+  // jadi section ini perlu dipasang ulang di posisi awal setiap render.
+  rowsRoot.insertBefore(section, rowsRoot.firstChild);
+  section.classList.remove("hidden");
+
+  const track = section.querySelector("[data-track]");
+  track.innerHTML = list.map(historyCardHTML).join("");
+  bindHistoryCardClicks(track);
+}
+
 /* ─── Rows — render & fetch mandiri per kategori ────────────── */
 function ensureRowEl(row) {
   let section = document.getElementById(`row-${row.id}`);
@@ -211,6 +294,11 @@ async function loadHome(provider, platform) {
   // Naikkan token — semua request lama yang belum selesai akan diabaikan saat resolve.
   const myToken = ++homeToken;
   rowsRoot.innerHTML = "";
+
+  // Baris "Lanjutkan Menonton" independen dari provider/platform yang aktif
+  // (menampilkan riwayat semua platform sekaligus) — render duluan karena
+  // sumbernya localStorage, tidak perlu fetch.
+  renderContinueRow();
 
   try {
     try {

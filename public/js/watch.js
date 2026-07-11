@@ -1,6 +1,7 @@
 import { api, backendUrl } from "./api.js";
 import { esc, showToast } from "./utils.js";
 import { icon } from "./icons.js";
+import { saveProgress, getEntry } from "./history.js";
 
 /* ─── Parse URL params ────────────────────────────────────── */
 const params    = new URLSearchParams(location.search);
@@ -11,6 +12,10 @@ const PLATFORM  = params.get("platform") || PROVIDER;
 let   currentEp = Number(params.get("ep")) || 1;
 let   totalEpisodesCount = 0;
 let   episodesData = [];
+// Judul/cover drama — diisi saat init() sukses, dipakai untuk menulis riwayat
+// tontonan (history.js) tanpa perlu fetch ulang tiap ganti episode.
+let   dramaTitle = "";
+let   dramaCover = "";
 // Token untuk mencegah race condition saat klik episode beruntun:
 // response episode lama yang datang terlambat akan diabaikan.
 let   playToken = 0;
@@ -60,8 +65,15 @@ function showCompleted() {
   playerLoader.style.display = "flex";
 }
 
+/** Terapkan posisi resume (kalau ada) sekali saat video baru siap diputar. */
+function applyResumeSeek(resumeSeconds) {
+  if (resumeSeconds > 0 && isFinite(video.duration) && resumeSeconds < video.duration - 3) {
+    try { video.currentTime = resumeSeconds; } catch {}
+  }
+}
+
 /** Putar stream HLS via HLS.js (DramaBox dan platform HLS lainnya). */
-function loadStream(videoUrl) {
+function loadStream(videoUrl, resumeSeconds = 0) {
   playerLoader.style.display = "flex";
   playerLoader.innerHTML = `<div class="spinner"></div><p class="loader-text">Memuat video...</p>`;
 
@@ -79,6 +91,7 @@ function loadStream(videoUrl) {
     hls.attachMedia(video);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       playerLoader.style.display = "none";
+      applyResumeSeek(resumeSeconds);
       video.play().catch(() => showOpenExternal());
     });
     hls.on(Hls.Events.ERROR, (_, data) => {
@@ -95,6 +108,7 @@ function loadStream(videoUrl) {
     video.src = videoUrl;
     video.addEventListener("loadedmetadata", () => {
       playerLoader.style.display = "none";
+      applyResumeSeek(resumeSeconds);
       video.play().catch(() => {});
     }, { once: true });
     video.addEventListener("error", () => showOpenExternal(), { once: true });
@@ -104,7 +118,7 @@ function loadStream(videoUrl) {
 }
 
 /** Putar video MP4 langsung via native <video> (PineDrama & platform MP4 lainnya). */
-function loadMp4(videoUrl) {
+function loadMp4(videoUrl, resumeSeconds = 0) {
   playerLoader.style.display = "flex";
   playerLoader.innerHTML = `<div class="spinner"></div><p class="loader-text">Memuat video...</p>`;
 
@@ -113,10 +127,45 @@ function loadMp4(videoUrl) {
   video.src = videoUrl;
   video.addEventListener("canplay", () => {
     playerLoader.style.display = "none";
+    applyResumeSeek(resumeSeconds);
     video.play().catch(() => showOpenExternal());
   }, { once: true });
   video.addEventListener("error", () => showOpenExternal(), { once: true });
 }
+
+/**
+ * Simpan progres tontonan saat ini ke riwayat (localStorage). Provider &
+ * platform SELALU dari konstanta URL halaman ini (bukan pilihan dropdown
+ * lain di tab manapun) — jadi tidak mungkin salah platform.
+ */
+function persistProgress() {
+  if (!ID || !video.duration || !isFinite(video.duration)) return;
+  saveProgress({
+    provider: PROVIDER,
+    platform: PLATFORM,
+    id: ID,
+    title: dramaTitle,
+    cover: dramaCover,
+    episode: currentEp,
+    totalEpisodes: totalEpisodesCount,
+    positionSec: video.currentTime,
+    durationSec: video.duration,
+  });
+}
+
+// Autosave berkala (throttle 5 detik) + saat video di-pause/tab disembunyikan/
+// ditutup — supaya progres tetap tersimpan walau user keluar mendadak tanpa
+// menunggu HLS/MP4 selesai.
+let lastProgressSaveTs = 0;
+video.addEventListener("timeupdate", () => {
+  const now = Date.now();
+  if (now - lastProgressSaveTs < 5000) return;
+  lastProgressSaveTs = now;
+  persistProgress();
+});
+video.addEventListener("pause", persistProgress);
+document.addEventListener("visibilitychange", () => { if (document.hidden) persistProgress(); });
+window.addEventListener("pagehide", persistProgress);
 
 /* ─── Episode ─────────────────────────────────────────────── */
 async function playEpisode(ep) {
@@ -159,12 +208,35 @@ async function playEpisode(ep) {
 
     if (!data.videoUrl) throw new Error("URL stream tidak tersedia");
 
+    // Resume mid-episode HANYA jika riwayat tersimpan untuk provider+id INI
+    // persis di episode yang sama — kalau beda episode, mulai dari 0.
+    const savedEntry = getEntry(PROVIDER, ID);
+    const resumeSeconds =
+      savedEntry && savedEntry.episode === ep && savedEntry.positionSec > 5
+        ? savedEntry.positionSec
+        : 0;
+
+    // Tulis entri riwayat segera (sebelum video selesai load) supaya baris
+    // "Lanjutkan Menonton" di home tetap tercatat walau user langsung
+    // menutup tab sebelum sempat menonton.
+    saveProgress({
+      provider: PROVIDER,
+      platform: PLATFORM,
+      id: ID,
+      title: dramaTitle,
+      cover: dramaCover,
+      episode: ep,
+      totalEpisodes: totalEpisodesCount,
+      positionSec: resumeSeconds,
+      durationSec: savedEntry?.episode === ep ? savedEntry.durationSec : 0,
+    });
+
     if (data.streamType === "mp4") {
       // PineDrama: URL TikTok CDN langsung (MP4), tidak perlu prefix backend
-      loadMp4(data.videoUrl);
+      loadMp4(data.videoUrl, resumeSeconds);
     } else {
       // DramaBox & platform HLS: videoUrl adalah path internal → prefix backend
-      loadStream(backendUrl(data.videoUrl));
+      loadStream(backendUrl(data.videoUrl), resumeSeconds);
     }
   } catch (e) {
     if (myToken !== playToken) return;
@@ -330,6 +402,9 @@ async function init() {
 
   try {
     const d = await api(`/api/drama/${PROVIDER}/${ID}?platform=${PLATFORM}`);
+
+    dramaTitle = d.title || "";
+    dramaCover = d.cover || "";
 
     updateMetaTags(d);
 

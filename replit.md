@@ -141,6 +141,55 @@ diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 |-----|-------|-------------|
 | `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"` / `"reelshort"` / `"dramabite"` / `"moboreels"` / `"dramawave"`) | `home.js` — restore platform saat kembali ke home |
 | `dramain_autoplay` | `"on"` / `"off"` | `watch.js` — ingat preferensi putar otomatis |
+| `dramain_history` | array riwayat tontonan (lihat bagian "Riwayat Tontonan") | `history.js` — dipakai bersama `watch.js` (tulis) & `home.js` (baca/render) |
+
+### Riwayat Tontonan & Lanjutkan Menonton (`lib/providers` tidak terlibat — 100% client-side)
+
+Tidak ada akun/login di proyek ini, jadi riwayat tontonan disimpan murni di
+`localStorage` browser (`public/js/history.js`), tanpa endpoint backend baru.
+
+**Skema satu entri** (key unik = `provider + id`, provider id unik global —
+lihat bagian Arsitektur Platform):
+```js
+{ provider, platform, id, title, cover, episode, totalEpisodes,
+  positionSec, durationSec, updatedAt }
+```
+
+**Anti-bocor antar-platform** (poin krusial): setiap entri menyimpan
+`provider` DAN `platform` apa adanya sesuai saat drama itu ditonton. Saat
+kartu "Lanjutkan Menonton" di-klik, `home.js` membangun URL watch
+**langsung dari `data-provider`/`data-platform` milik kartu itu sendiri**,
+BUKAN dari `currentProvider`/`currentPlatform` yang sedang aktif di
+dropdown. Ini memastikan drama yang ditonton di platform A tidak pernah
+terbuka lewat adapter platform B, berapa pun kali user berganti platform
+di antaranya.
+
+**Alur tulis** (`watch.js`):
+1. Saat `playEpisode(ep)` sukses mendapat `videoUrl`, entri langsung
+   ditulis (progres 0 atau posisi resume) — supaya tercatat walau user
+   langsung menutup tab sebelum video sempat termuat.
+2. Selama video diputar: `timeupdate` (throttle 5 detik), `pause`,
+   `visibilitychange` (tab disembunyikan), dan `pagehide` semuanya memanggil
+   `persistProgress()` untuk menyimpan `video.currentTime`/`video.duration`
+   terkini — supaya keluar mendadak (tutup tab, pindah app) tidak kehilangan
+   progres.
+3. Saat episode yang sama dibuka lagi dan riwayat tersimpan punya
+   `positionSec > 5`, `applyResumeSeek()` melompat ke posisi itu sekali
+   setelah manifest/metadata siap (HLS.js `MANIFEST_PARSED`, Safari native
+   HLS `loadedmetadata`, atau MP4 `canplay`). Episode BEDA dari yang
+   tersimpan selalu mulai dari 0 (tidak resume nyasar ke episode lain).
+
+**Alur baca** (`home.js`): `renderContinueRow()` dipanggil di awal
+`loadHome()` (sebelum fetch apapun, karena sumbernya `localStorage`) dan
+selalu dipasang ulang di posisi PALING ATAS `rowsRoot` — independen dari
+provider/platform yang sedang aktif, jadi riwayat semua platform tetap
+tampil bersamaan tanpa perlu ganti-ganti dropdown. Baris disembunyikan
+otomatis kalau riwayat kosong. Tiap kartu punya badge platform, badge
+episode (`Ep X/Y`), progress bar tipis (posisi/durasi), dan tombol hapus
+(×) yang memanggil `removeEntry()` tanpa memicu navigasi (`stopPropagation`).
+
+Kapasitas riwayat dibatasi `MAX_ITEMS = 40` (di `history.js`), entri terlama
+otomatis terbuang saat melebihi batas.
 
 ### Tipe stream per platform
 
