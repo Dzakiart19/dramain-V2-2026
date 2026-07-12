@@ -466,6 +466,51 @@ app.get("/api/foryou/:provider", async (req, res) => {
   }
 });
 
+// GET /api/ad-popup-target — resolve VAST wrapper ExoClick SERVER-SIDE.
+// Kedua zone VAST (5972886, 5972892) ternyata bukan video asli, melainkan
+// <Wrapper> yang isinya redirect ke popup/landing page pihak ketiga —
+// diperlakukan sebagai "direct link" (lihat public/js/ads.js). Resolusi
+// dilakukan di backend (bukan fetch langsung dari browser client) karena
+// domain iklan seperti magsrv.com sering diblokir oleh ad-blocker/browser
+// mobile di sisi client — request server-to-server tidak terkena blokir itu.
+const AD_VAST_ZONES = [
+  "https://s.magsrv.com/v1/vast.php?idz=5972886",
+  "https://s.magsrv.com/v1/vast.php?idzone=5972892",
+];
+
+app.get("/api/ad-popup-target", async (req, res) => {
+  const zone = AD_VAST_ZONES[Math.floor(Math.random() * AD_VAST_ZONES.length)];
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    let xml;
+    try {
+      const upstream = await fetch(zone, { signal: controller.signal });
+      if (!upstream.ok) return ok(res, { target: null });
+      xml = await upstream.text();
+    } finally {
+      clearTimeout(timer);
+    }
+
+    // Fire semua tracking pixel <Impression> server-side — tidak bergantung
+    // client, tidak bisa diblokir ad-blocker browser, dan tidak pernah
+    // memblokir response ke client (fire-and-forget, tanpa await).
+    for (const m of xml.matchAll(/<Impression[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/Impression>/gs)) {
+      fetch(m[1].trim()).catch(() => {});
+    }
+
+    const wrapperMatch = xml.match(/<VASTAdTagURI>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/VASTAdTagURI>/s);
+    const clickMatch = xml.match(/<ClickThrough[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/ClickThrough>/s);
+    const target = wrapperMatch?.[1]?.trim() || clickMatch?.[1]?.trim() || null;
+    ok(res, { target });
+  } catch (err) {
+    // Gagal resolve (network/timeout) — jangan pernah error ke client,
+    // cukup target:null supaya client menutup tab kosong dengan tenang.
+    console.error("[Ad Popup Error]", redactSecrets(err.message));
+    ok(res, { target: null });
+  }
+});
+
 // GET /api/notifications?platform=PLATFORM
 app.get("/api/notifications", async (req, res) => {
   const { platform = DEFAULT_PLATFORM } = req.query;
