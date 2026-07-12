@@ -372,6 +372,25 @@ body.watch-page { background: #000; }
 
 #videoPlayer { width: 100%; height: 100%; display: block; background: #000; }
 
+/* ─── Pre-roll ad overlay (ExoClick) ────────────────────────
+   Ditampilkan sebelum episode 1, 6, 11, ... — lihat public/js/watch.js */
+.ad-preroll-badge {
+  position: absolute; top: 10px; left: 10px; z-index: 3;
+  background: rgba(0,0,0,0.65); color: var(--text2);
+  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 3px; pointer-events: none;
+}
+.ad-preroll-clicklayer {
+  position: absolute; inset: 0; z-index: 2; cursor: pointer;
+}
+.ad-preroll-skip {
+  position: absolute; bottom: 14px; right: 14px; z-index: 3;
+  background: rgba(0,0,0,0.75); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 7px 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+}
+.ad-preroll-skip:hover { background: rgba(0,0,0,0.9); }
+
 .watch-info { display: flex; flex-direction: column; gap: 18px; }
 #dramaInfo .drama-title { font-size: 1.25rem; font-weight: 800; margin-bottom: 10px; }
 #dramaInfo .drama-desc { color: var(--text2); font-size: 0.85rem; line-height: 1.6; max-height: 90px; overflow-y: auto; }

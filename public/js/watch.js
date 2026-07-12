@@ -158,14 +158,107 @@ function persistProgress() {
 // menunggu HLS/MP4 selesai.
 let lastProgressSaveTs = 0;
 video.addEventListener("timeupdate", () => {
+  if (isPlayingAd) return; // jangan simpan posisi iklan sebagai progres drama
   const now = Date.now();
   if (now - lastProgressSaveTs < 5000) return;
   lastProgressSaveTs = now;
   persistProgress();
 });
-video.addEventListener("pause", persistProgress);
-document.addEventListener("visibilitychange", () => { if (document.hidden) persistProgress(); });
-window.addEventListener("pagehide", persistProgress);
+video.addEventListener("pause", () => { if (!isPlayingAd) persistProgress(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && !isPlayingAd) persistProgress(); });
+window.addEventListener("pagehide", () => { if (!isPlayingAd) persistProgress(); });
+
+/* ─── Iklan pre-roll (ExoClick) ───────────────────────────────
+ * Diputar inline di dalam player SEBELUM episode dimulai, pada episode
+ * 1, 6, 11, 16, ... (setiap kelipatan 5 dari episode 1). isPlayingAd
+ * dicek di semua listener video (timeupdate/pause/dst.) supaya progres
+ * tontonan drama tidak ikut kesimpan sebagai posisi iklan.
+ */
+let isPlayingAd = false;
+
+function shouldShowPrerollAd(ep) {
+  return (ep - 1) % 5 === 0;
+}
+
+/** Tampilkan iklan pre-roll di <video> yang sama; resolve setelah selesai/di-skip/gagal. */
+function runPrerollAd(myToken) {
+  return new Promise((resolve) => {
+    const finish = () => {
+      if (hls) { hls.destroy(); hls = null; }
+      video.removeEventListener("ended", onEnded);
+      video.removeEventListener("error", onError);
+      badge?.remove();
+      clickLayer?.remove();
+      skipBtn?.remove();
+      isPlayingAd = false;
+      resolve();
+    };
+    const onEnded = () => finish();
+    const onError = () => finish();
+
+    let badge, clickLayer, skipBtn;
+
+    playerLoader.style.display = "flex";
+    playerLoader.innerHTML = `<div class="spinner"></div><p class="loader-text">Memuat iklan...</p>`;
+
+    const controller = new AbortController();
+    const fetchTimeout = setTimeout(() => controller.abort(), 5000);
+
+    fetch(backendUrl("/api/preroll-ad"), { signal: controller.signal })
+      .then((r) => r.json())
+      .then((json) => {
+        clearTimeout(fetchTimeout);
+        if (myToken !== playToken) return resolve(); // user sudah pindah episode lain
+
+        const videoUrl = json?.ok ? json.data?.videoUrl : null;
+        const clickUrl = json?.ok ? json.data?.clickUrl : null;
+        if (!videoUrl) return resolve(); // no-fill — lewati tanpa mengganggu UX
+
+        isPlayingAd = true;
+        playerLoader.style.display = "none";
+
+        badge = document.createElement("div");
+        badge.className = "ad-preroll-badge";
+        badge.textContent = "Iklan";
+        document.querySelector(".player-wrap").appendChild(badge);
+
+        if (clickUrl) {
+          clickLayer = document.createElement("div");
+          clickLayer.className = "ad-preroll-clicklayer";
+          clickLayer.addEventListener("click", () => {
+            window.open(clickUrl, "_blank", "noopener,noreferrer");
+          });
+          document.querySelector(".player-wrap").appendChild(clickLayer);
+        }
+
+        // Tombol lewati muncul setelah 5 detik supaya iklan tetap tayang
+        // sebentar, tapi user tidak terjebak kalau iklan panjang/macet.
+        setTimeout(() => {
+          if (!isPlayingAd) return;
+          skipBtn = document.createElement("button");
+          skipBtn.className = "ad-preroll-skip";
+          skipBtn.textContent = "Lewati Iklan ▸";
+          skipBtn.addEventListener("click", finish);
+          document.querySelector(".player-wrap").appendChild(skipBtn);
+        }, 5000);
+
+        video.muted = true; // autoplay mobile hanya diizinkan browser kalau muted
+        video.controls = false;
+        video.src = videoUrl;
+        video.addEventListener("ended", onEnded, { once: true });
+        video.addEventListener("error", onError, { once: true });
+        video.play().catch(() => finish());
+
+        // Guard keras — kalau video ad macet/durasi salah, jangan sampai
+        // user terjebak lebih dari 40 detik.
+        setTimeout(() => { if (isPlayingAd) finish(); }, 40000);
+      })
+      .catch(() => {
+        clearTimeout(fetchTimeout);
+        resolve(); // gagal fetch/timeout — lewati, jangan blokir nonton
+      });
+  });
+}
 
 /* ─── Episode ─────────────────────────────────────────────── */
 async function playEpisode(ep) {
@@ -187,6 +280,13 @@ async function playEpisode(ep) {
   if (activeBtn) activeBtn.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
   history.replaceState(null, "", `?provider=${PROVIDER}&id=${ID}&ep=${ep}&platform=${PLATFORM}`);
+
+  if (shouldShowPrerollAd(ep)) {
+    await runPrerollAd(myToken);
+    if (myToken !== playToken) return;
+    video.controls = true;
+    video.muted = false;
+  }
 
   try {
     playerLoader.style.display = "flex";

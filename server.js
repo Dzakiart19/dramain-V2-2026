@@ -540,6 +540,36 @@ app.get("/api/ad-popup-target", async (req, res) => {
   }
 });
 
+// GET /api/preroll-ad — pre-roll video ad SESUNGGUHNYA yang diputar inline
+// di dalam player sebelum episode dimulai (episode 1, 6, 11, ... — logika
+// pemicunya di public/js/watch.js). Berbeda dari /api/ad-popup-target di
+// atas: di sini kita cari <MediaFile> (video ad asli yang bisa diputar
+// <video>) dari InLine hasil chase, bukan ClickThrough (landing page).
+app.get("/api/preroll-ad", async (req, res) => {
+  const zone = AD_VAST_ZONES[Math.floor(Math.random() * AD_VAST_ZONES.length)];
+  const impressionPixels = [];
+  try {
+    const finalXml = await chaseVastChain(zone, impressionPixels);
+    for (const pixelUrl of impressionPixels) fetch(pixelUrl).catch(() => {});
+
+    if (!finalXml) return ok(res, { videoUrl: null, clickUrl: null });
+
+    // Ambil semua <MediaFile>, prioritaskan mp4 progresif (yang bisa
+    // langsung diputar <video> HTML5 — bukan format streaming lain).
+    const mediaFiles = [...finalXml.matchAll(/<MediaFile\b([^>]*)>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/MediaFile>/gs)]
+      .map(([, attrs, url]) => ({ attrs, url: url.trim() }));
+    const mp4 = mediaFiles.find((m) => /type=["']video\/mp4["']/i.test(m.attrs)) || mediaFiles[0];
+
+    const clickMatch = finalXml.match(/<ClickThrough[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/ClickThrough>/s);
+
+    ok(res, { videoUrl: mp4?.url || null, clickUrl: clickMatch?.[1]?.trim() || null });
+  } catch (err) {
+    for (const pixelUrl of impressionPixels) fetch(pixelUrl).catch(() => {});
+    console.error("[Preroll Ad Error]", redactSecrets(err.message));
+    ok(res, { videoUrl: null, clickUrl: null });
+  }
+});
+
 // GET /api/notifications?platform=PLATFORM
 app.get("/api/notifications", async (req, res) => {
   const { platform = DEFAULT_PLATFORM } = req.query;
