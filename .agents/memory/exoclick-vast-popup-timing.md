@@ -13,3 +13,9 @@
 
     **How to apply:** any `window.open` that depends on an async result (fetch, VAST parse, ad SDK callback) inside a click handler — open the tab synchronously first, redirect it later.
     
+    **Second bug (2026-07-12):** taking the first `<Wrapper><VASTAdTagURI>` as the final destination is wrong — a Wrapper can chain to another Wrapper before finally reaching `<InLine>` (VAST 3 allows unlimited hops, VAST 4 caps at 5). Opening the first hop's URL just opens another VAST XML document (looks blank/broken in a browser tab), not a landing page.
+
+    **Fix:** recursively fetch and follow `VASTAdTagURI` server-side until the response has no more wrapper (i.e. it's `<InLine>`), collecting every hop's `<Impression>` pixels along the way, then extract `<ClickThrough>` (fallback `<MediaFile>`) from the final InLine as the real target URL.
+
+    **How to apply:** any VAST/wrapper-style ad integration must chase the full wrapper chain to InLine before treating any URL as a "real" destination — never assume the first VASTAdTagURI is final.
+    

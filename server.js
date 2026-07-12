@@ -473,39 +473,68 @@ app.get("/api/foryou/:provider", async (req, res) => {
 // dilakukan di backend (bukan fetch langsung dari browser client) karena
 // domain iklan seperti magsrv.com sering diblokir oleh ad-blocker/browser
 // mobile di sisi client — request server-to-server tidak terkena blokir itu.
+//
+// PENTING: sebuah <Wrapper> BISA berantai ke <Wrapper> lain sebelum akhirnya
+// berakhir di <InLine> (spesifikasi VAST 3.0 mengizinkan rantai wrapper
+// tanpa batas — versi 4 membatasi maks 5 hop). Ambil hanya VASTAdTagURI
+// lapis pertama SALAH — itu masih dokumen VAST XML lain, bukan halaman
+// tujuan. Harus dikejar (chase) sampai ketemu <InLine>, baru ambil
+// <ClickThrough> (URL landing page sesungguhnya) dari situ.
 const AD_VAST_ZONES = [
   "https://s.magsrv.com/v1/vast.php?idz=5972886",
   "https://s.magsrv.com/v1/vast.php?idzone=5972892",
 ];
 
+async function fetchWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Kejar rantai VAST Wrapper sampai ketemu <InLine>, kumpulkan semua
+// tracking pixel <Impression> di sepanjang rantai (setiap hop punya
+// pixel sendiri untuk billing/tracking ExoClick).
+async function chaseVastChain(url, impressionPixels, depth = 0) {
+  if (depth > 5) return null; // batas wajar sesuai spec VAST 4
+  const upstream = await fetchWithTimeout(url, 6000);
+  if (!upstream.ok) return null;
+  const xml = await upstream.text();
+
+  for (const m of xml.matchAll(/<Impression[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/Impression>/gs)) {
+    impressionPixels.push(m[1].trim());
+  }
+
+  const wrapperMatch = xml.match(/<VASTAdTagURI>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/VASTAdTagURI>/s);
+  if (wrapperMatch) {
+    return chaseVastChain(wrapperMatch[1].trim(), impressionPixels, depth + 1);
+  }
+  return xml; // sudah di ujung rantai — <InLine> (atau VAST kosong = no-fill)
+}
+
 app.get("/api/ad-popup-target", async (req, res) => {
   const zone = AD_VAST_ZONES[Math.floor(Math.random() * AD_VAST_ZONES.length)];
+  const impressionPixels = [];
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    let xml;
-    try {
-      const upstream = await fetch(zone, { signal: controller.signal });
-      if (!upstream.ok) return ok(res, { target: null });
-      xml = await upstream.text();
-    } finally {
-      clearTimeout(timer);
-    }
+    const finalXml = await chaseVastChain(zone, impressionPixels);
 
-    // Fire semua tracking pixel <Impression> server-side — tidak bergantung
-    // client, tidak bisa diblokir ad-blocker browser, dan tidak pernah
-    // memblokir response ke client (fire-and-forget, tanpa await).
-    for (const m of xml.matchAll(/<Impression[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/Impression>/gs)) {
-      fetch(m[1].trim()).catch(() => {});
-    }
+    // Fire semua tracking pixel yang terkumpul sepanjang rantai —
+    // fire-and-forget, tidak pernah menunda response ke client.
+    for (const pixelUrl of impressionPixels) fetch(pixelUrl).catch(() => {});
 
-    const wrapperMatch = xml.match(/<VASTAdTagURI>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/VASTAdTagURI>/s);
-    const clickMatch = xml.match(/<ClickThrough[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/ClickThrough>/s);
-    const target = wrapperMatch?.[1]?.trim() || clickMatch?.[1]?.trim() || null;
+    if (!finalXml) return ok(res, { target: null });
+
+    const clickMatch = finalXml.match(/<ClickThrough[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/ClickThrough>/s);
+    const mediaMatch = finalXml.match(/<MediaFile[^>]*>\s*<!\[CDATA\[(.*?)\]\]>\s*<\/MediaFile>/s);
+    const target = clickMatch?.[1]?.trim() || mediaMatch?.[1]?.trim() || null;
     ok(res, { target });
   } catch (err) {
     // Gagal resolve (network/timeout) — jangan pernah error ke client,
     // cukup target:null supaya client menutup tab kosong dengan tenang.
+    for (const pixelUrl of impressionPixels) fetch(pixelUrl).catch(() => {});
     console.error("[Ad Popup Error]", redactSecrets(err.message));
     ok(res, { target: null });
   }
