@@ -69,20 +69,33 @@ async function resolveVastTarget(vastUrl) {
 async function triggerPopupOnce() {
   if (sessionStorage.getItem(SESSION_FLAG)) return;
 
-  const openOnce = async () => {
+  const openOnce = (clickEvent) => {
     if (sessionStorage.getItem(SESSION_FLAG)) return;
     // Set flag SEBELUM async work selesai — klik kedua yang terjadi saat
     // fetch masih berlangsung tidak memicu popup ganda.
     sessionStorage.setItem(SESSION_FLAG, "1");
     document.removeEventListener("click", openOnce, true);
 
+    // PENTING: window.open() HARUS dipanggil sinkron di dalam handler klik
+    // ini (bukan setelah await fetch), kalau tidak browser menganggapnya
+    // bukan lagi hasil aksi user langsung dan popup-nya diblokir diam-diam
+    // (tanpa error apa pun) — inilah sebab popup tidak pernah muncul
+    // sebelumnya walau klik biasa (mis. tombol "Putar") tetap berfungsi
+    // normal. Solusinya: buka tab kosong dulu SINKRON, baru isi URL-nya
+    // setelah VAST selesai di-resolve (async).
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+
     const zone = VAST_ZONES[Math.floor(Math.random() * VAST_ZONES.length)];
-    try {
-      const target = await resolveVastTarget(zone);
-      if (target) window.open(target, "_blank", "noopener,noreferrer");
-    } catch {
-      // Gagal resolve (network/CORS/no-fill) — abaikan, jangan ganggu UX.
-    }
+    resolveVastTarget(zone)
+      .then((target) => {
+        if (target && popup && !popup.closed) popup.location.href = target;
+        else if (popup && !popup.closed) popup.close();
+      })
+      .catch(() => {
+        // Gagal resolve (network/CORS/no-fill) — tutup tab kosong, jangan
+        // biarkan tab blank menggantung, dan jangan ganggu UX klik utama.
+        if (popup && !popup.closed) popup.close();
+      });
   };
 
   document.addEventListener("click", openOnce, true);
