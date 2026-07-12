@@ -31,35 +31,6 @@ body {
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; }
 
-/* ─── Iklan (Adsterra) ───────────────────────────────────────
-   Slot iklan statis, ukuran tetap dijaga (min-height) supaya tidak
-   menggeser layout (CLS) saat script iklan memuat. Ditempatkan di
-   jeda alami konten, bukan menimpa/menutupi konten atau player. */
-.ad-slot {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  margin: 28px auto; max-width: 100%; padding: 0 12px;
-}
-.ad-slot-label {
-  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
-  color: var(--text3);
-}
-/* overflow-x: auto (bukan hidden) — kalau lebar iframe iklan sedikit lebih
-   besar dari viewport sangat sempit, geser di dalam slot iklan sendiri,
-   bukan memaksa seluruh halaman scroll horizontal. */
-.ad-slot-unit { display: flex; justify-content: center; max-width: 100%; overflow-x: auto; }
-.ad-slot--728x90  .ad-slot-unit { width: 728px; height: 90px; }
-.ad-slot--320x50  .ad-slot-unit { width: 320px; height: 50px; }
-.ad-slot--300x250 .ad-slot-unit { width: 300px; height: 250px; }
-.ad-slot--468x60  .ad-slot-unit { width: 468px; height: 60px; }
-.ad-slot--160x600 .ad-slot-unit { width: 160px; height: 600px; }
-.ad-slot--160x300 .ad-slot-unit { width: 160px; height: 300px; }
-
-.ad-mobile-only { display: none; }
-@media (max-width: 767px) {
-  .ad-desktop-only { display: none; }
-  .ad-mobile-only  { display: flex; }
-}
-
 /* ─── Header ─────────────────────────────────────────────── */
 header {
   position: sticky; top: 0; z-index: 100;

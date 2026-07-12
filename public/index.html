@@ -100,24 +100,7 @@
     <section id="homeSection">
       <section id="hero" class="hero hidden"></section>
 
-      <!-- Iklan: leaderboard (desktop) / mobile banner — jeda alami setelah hero.
-           Dirender async oleh /js/ads.js (iframe terisolasi, tidak blocking). -->
-      <div class="ad-slot ad-slot--728x90 ad-desktop-only">
-        <span class="ad-slot-label">Iklan</span>
-        <div class="ad-slot-unit" data-ad-key="4c112354178bbc24e39d6c7e2dbb09d6" data-ad-w="728" data-ad-h="90"></div>
-      </div>
-      <div class="ad-slot ad-slot--320x50 ad-mobile-only">
-        <span class="ad-slot-label">Iklan</span>
-        <div class="ad-slot-unit" data-ad-key="ba8536d86edbb4e28bcc8cb32b37c074" data-ad-w="320" data-ad-h="50"></div>
-      </div>
-
       <div id="rowsRoot"></div>
-
-      <!-- Iklan: rectangle — jeda di akhir halaman, tidak menutupi konten -->
-      <div class="ad-slot ad-slot--300x250">
-        <span class="ad-slot-label">Iklan</span>
-        <div class="ad-slot-unit" data-ad-key="e3faf41c09046f72483f6d2eafded156" data-ad-w="300" data-ad-h="250"></div>
-      </div>
     </section>
   </main>
 
@@ -138,12 +121,5 @@
     document.getElementById("modalClose").innerHTML = icon.close();
     document.getElementById("searchBackBtn").innerHTML = icon.back();
   </script>
-
-  <!-- Iklan: script latar belakang (social bar, native banner, direct-link sekali per sesi) -->
-  <script type="module" src="/js/ads.js"></script>
-  <script async src="https://pl28604584.effectivecpmnetwork.com/75/3f/1a/753f1a4d97804cd6df264ed87f12b620.js"></script>
-  <script async src="https://pl28604567.effectivecpmnetwork.com/f1/ea/cc/f1eaccf6e91c6d1883e3ecdd863bae31.js"></script>
-  <script async data-cfasync="false" src="https://pl28604570.effectivecpmnetwork.com/0eb91f935a13464cd586f8674a5e5fa9/invoke.js"></script>
-  <div id="container-0eb91f935a13464cd586f8674a5e5fa9"></div>
 </body>
 </html>
