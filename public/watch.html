@@ -6,7 +6,7 @@
 
   <!-- ─── Primary ──────────────────────────────────────────────────────────── -->
   <title>Memuat... — Dramain Aja</title>
-  <meta name="description" content="Nonton drama pendek tanpa iklan — DramaBox, PineDrama, GoodShort. Ribuan judul, gratis, langsung di browser." />
+  <meta name="description" content="Nonton drama pendek gratis — DramaBox, PineDrama, GoodShort. Ribuan judul, langsung di browser." />
   <meta name="author" content="Dramain Aja" />
   <meta name="robots" content="index, follow" />
   <meta name="theme-color" content="#141414" />
@@ -15,7 +15,7 @@
   <meta property="og:type" content="video.other" />
   <meta property="og:site_name" content="Dramain Aja" />
   <meta property="og:title" content="Dramain Aja — Nonton Drama Pendek Gratis" />
-  <meta property="og:description" content="Nonton drama pendek tanpa iklan — DramaBox, PineDrama, GoodShort. Ribuan judul, gratis, langsung di browser." />
+  <meta property="og:description" content="Nonton drama pendek gratis — DramaBox, PineDrama, GoodShort. Ribuan judul, langsung di browser." />
   <meta property="og:url" content="https://dramain-aja.web.app/" />
   <meta property="og:image" content="https://dramain-aja.web.app/og-image.jpg" />
   <meta property="og:image:type" content="image/jpeg" />
@@ -27,7 +27,7 @@
   <!-- ─── Twitter / X Card (diupdate dinamis oleh watch.js) ───────────────── -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Dramain Aja — Nonton Drama Pendek Gratis" />
-  <meta name="twitter:description" content="Nonton drama pendek tanpa iklan — DramaBox, PineDrama, GoodShort. Ribuan judul, gratis, langsung di browser." />
+  <meta name="twitter:description" content="Nonton drama pendek gratis — DramaBox, PineDrama, GoodShort. Ribuan judul, langsung di browser." />
   <meta name="twitter:image" content="https://dramain-aja.web.app/og-image.jpg" />
   <meta name="twitter:image:alt" content="Dramain Aja — Nonton Drama Pendek Gratis" />
 
@@ -51,7 +51,7 @@
     "@context": "https://schema.org",
     "@type": "VideoObject",
     "name": "Dramain Aja — Nonton Drama Pendek Gratis",
-    "description": "Nonton drama pendek tanpa iklan — DramaBox, PineDrama, GoodShort.",
+    "description": "Nonton drama pendek gratis — DramaBox, PineDrama, GoodShort.",
     "thumbnailUrl": "https://dramain-aja.web.app/og-image.jpg",
     "uploadDate": "2026-01-01",
     "publisher": {
@@ -65,6 +65,7 @@
   <link rel="stylesheet" href="/style.css" />
   <script src="/config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+  <script async type="application/javascript" src="https://a.magsrv.com/ad-provider.js"></script>
 </head>
 <body class="watch-page">
   <header>
@@ -81,6 +82,15 @@
         <p class="loader-text">Memuat video...</p>
       </div>
       <video id="videoPlayer" controls playsinline></video>
+    </div>
+
+    <!-- Iklan: banner ExoClick — jeda alami setelah player -->
+    <div class="ad-slot">
+      <span class="ad-slot-label">Iklan</span>
+      <div class="ad-slot-unit">
+        <ins class="eas6a97888e31" data-zoneid="5972888"></ins>
+        <script>(AdProvider = window.AdProvider || []).push({"serve": {}});</script>
+      </div>
     </div>
 
     <div class="watch-info">
@@ -100,6 +110,15 @@
         <div id="episodeStatus" class="ep-status"></div>
         <div id="episodeList" class="episode-grid"></div>
       </div>
+
+      <!-- Iklan: banner ExoClick — di akhir halaman -->
+      <div class="ad-slot">
+        <span class="ad-slot-label">Iklan</span>
+        <div class="ad-slot-unit">
+          <ins class="eas6a97888e37" data-zoneid="5972890"></ins>
+          <script>(AdProvider = window.AdProvider || []).push({"serve": {}});</script>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -110,5 +129,8 @@
     import { icon } from "/js/icons.js";
     document.querySelector("#backBtn span").innerHTML = icon.back();
   </script>
+
+  <!-- Iklan: trigger popup ExoClick (VAST) sekali per sesi -->
+  <script type="module" src="/js/ads.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # Dramain Aja
 
-Web app streaming drama pendek tanpa iklan, dengan UI bergaya Netflix
+Web app streaming drama pendek, dengan UI bergaya Netflix
 (dark, ikon monokrom, baris kategori horizontal, auto-play episode).
 
 ## Stack
