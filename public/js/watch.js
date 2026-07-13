@@ -180,83 +180,83 @@ function shouldShowPrerollAd(ep) {
   return (ep - 1) % 5 === 0;
 }
 
-/** Tampilkan iklan pre-roll di <video> yang sama; resolve setelah selesai/di-skip/gagal. */
-function runPrerollAd(myToken) {
+/**
+ * Tampilkan iklan pre-roll SEBELUM episode dimulai, memakai unit ExoClick
+ * "Outstream Video" (zone 5972890) yang SAMA dengan yang sudah terbukti
+ * selalu berhasil serve di halaman ini (bukan zone VAST 5972886/5972892 —
+ * itu zone khusus popunder/direct-link, fill-nya rendah dan tidak
+ * didesain untuk video inline, itu sebabnya sebelumnya sering "kosong").
+ *
+ * Prosesnya SELALU transparan buat user — tidak pernah diam-diam kosong:
+ * - Ada fill  → video iklan tampil, ada tombol Lewati setelah 5 detik.
+ * - Tidak ada fill (stok iklan network sedang kosong) → tampil pesan
+ *   singkat "Iklan tidak tersedia saat ini" ~1.5 detik, baru lanjut.
+ * Dibatasi keras maksimal 20 detik total supaya tidak pernah macet.
+ */
+function runPrerollAd() {
   return new Promise((resolve) => {
-    const finish = () => {
-      if (hls) { hls.destroy(); hls = null; }
-      video.removeEventListener("ended", onEnded);
-      video.removeEventListener("error", onError);
-      badge?.remove();
-      clickLayer?.remove();
-      skipBtn?.remove();
+    const wrap = document.querySelector(".player-wrap");
+    const nodes = [];
+    const cleanupAndResolve = () => {
+      clearTimeout(hardTimeout);
+      nodes.forEach((n) => n.remove());
       isPlayingAd = false;
       resolve();
     };
-    const onEnded = () => finish();
-    const onError = () => finish();
 
-    let badge, clickLayer, skipBtn;
+    isPlayingAd = true;
+    playerLoader.style.display = "none";
 
-    playerLoader.style.display = "flex";
-    playerLoader.innerHTML = `<div class="spinner"></div><p class="loader-text">Memuat iklan...</p>`;
+    const badge = document.createElement("div");
+    badge.className = "ad-preroll-badge";
+    badge.textContent = "Iklan";
+    wrap.appendChild(badge);
+    nodes.push(badge);
 
-    const controller = new AbortController();
-    const fetchTimeout = setTimeout(() => controller.abort(), 5000);
+    const adBox = document.createElement("div");
+    adBox.className = "ad-preroll-box";
+    adBox.innerHTML = `<ins class="eas6a97888e37" data-zoneid="5972890"></ins>`;
+    wrap.appendChild(adBox);
+    nodes.push(adBox);
 
-    fetch(backendUrl("/api/preroll-ad"), { signal: controller.signal })
-      .then((r) => r.json())
-      .then((json) => {
-        clearTimeout(fetchTimeout);
-        if (myToken !== playToken) return resolve(); // user sudah pindah episode lain
+    const statusText = document.createElement("p");
+    statusText.className = "ad-preroll-status";
+    statusText.textContent = "Memuat iklan...";
+    wrap.appendChild(statusText);
+    nodes.push(statusText);
 
-        const videoUrl = json?.ok ? json.data?.videoUrl : null;
-        const clickUrl = json?.ok ? json.data?.clickUrl : null;
-        if (!videoUrl) return resolve(); // no-fill — lewati tanpa mengganggu UX
+    try {
+      (window.AdProvider = window.AdProvider || []).push({ serve: {} });
+    } catch {}
 
-        isPlayingAd = true;
-        playerLoader.style.display = "none";
+    const hardTimeout = setTimeout(cleanupAndResolve, 20000);
 
-        badge = document.createElement("div");
-        badge.className = "ad-preroll-badge";
-        badge.textContent = "Iklan";
-        document.querySelector(".player-wrap").appendChild(badge);
+    // Beri jeda ~2.5 detik untuk cek apakah ExoClick berhasil isi <ins>
+    // dengan konten (iframe iklan). Kalau tidak (no-fill), kabari user
+    // secara jelas lalu lanjut — jangan diam-diam skip tanpa penjelasan.
+    setTimeout(() => {
+      const filled = adBox.querySelector("ins")?.childElementCount > 0;
+      if (!filled) {
+        statusText.textContent = "Iklan tidak tersedia saat ini";
+        setTimeout(cleanupAndResolve, 1500);
+        return;
+      }
 
-        if (clickUrl) {
-          clickLayer = document.createElement("div");
-          clickLayer.className = "ad-preroll-clicklayer";
-          clickLayer.addEventListener("click", () => {
-            window.open(clickUrl, "_blank", "noopener,noreferrer");
-          });
-          document.querySelector(".player-wrap").appendChild(clickLayer);
-        }
+      statusText.remove();
+      // Tombol lewati muncul setelah 5 detik nonton iklan.
+      setTimeout(() => {
+        if (!isPlayingAd) return;
+        const skipBtn = document.createElement("button");
+        skipBtn.className = "ad-preroll-skip";
+        skipBtn.textContent = "Lewati Iklan ▸";
+        skipBtn.addEventListener("click", cleanupAndResolve);
+        wrap.appendChild(skipBtn);
+        nodes.push(skipBtn);
+      }, 5000);
 
-        // Tombol lewati muncul setelah 5 detik supaya iklan tetap tayang
-        // sebentar, tapi user tidak terjebak kalau iklan panjang/macet.
-        setTimeout(() => {
-          if (!isPlayingAd) return;
-          skipBtn = document.createElement("button");
-          skipBtn.className = "ad-preroll-skip";
-          skipBtn.textContent = "Lewati Iklan ▸";
-          skipBtn.addEventListener("click", finish);
-          document.querySelector(".player-wrap").appendChild(skipBtn);
-        }, 5000);
-
-        video.muted = true; // autoplay mobile hanya diizinkan browser kalau muted
-        video.controls = false;
-        video.src = videoUrl;
-        video.addEventListener("ended", onEnded, { once: true });
-        video.addEventListener("error", onError, { once: true });
-        video.play().catch(() => finish());
-
-        // Guard keras — kalau video ad macet/durasi salah, jangan sampai
-        // user terjebak lebih dari 40 detik.
-        setTimeout(() => { if (isPlayingAd) finish(); }, 40000);
-      })
-      .catch(() => {
-        clearTimeout(fetchTimeout);
-        resolve(); // gagal fetch/timeout — lewati, jangan blokir nonton
-      });
+      // Total tayang iklan ~15 detik sejak konfirmasi terisi.
+      setTimeout(cleanupAndResolve, 15000);
+    }, 2500);
   });
 }
 

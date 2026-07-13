@@ -19,3 +19,7 @@
 
     **How to apply:** any VAST/wrapper-style ad integration must chase the full wrapper chain to InLine before treating any URL as a "real" destination — never assume the first VASTAdTagURI is final.
     
+    **Third finding (2026-07-13):** the two "VAST" zones (idz/idzone params) turned out to be low-fill popunder/direct-link inventory, not real reliable video ad inventory — chasing the wrapper chain correctly still often returned no-fill. Switched the in-player pre-roll to reuse the same ExoClick "Outstream Video" `<ins data-zoneid>` + `AdProvider.push({serve:{}})` snippet already proven reliable elsewhere on the page (100% "ad request completed successfully" in every test), dynamically inserted into the player container at pre-roll trigger time instead of relying on VAST fetch. Confirmed working end-to-end with the user.
+
+    **How to apply:** for ExoClick (and likely similar ad-provider.js networks), prefer the standard `<ins>+AdProvider.push` display/outstream zones for guaranteed-fill placements; treat raw VAST tag zones as unreliable/secondary unless proven otherwise. Multiple `AdProvider.push` calls per pageview for dynamically-inserted `<ins>` elements are supported (not one-serve-per-zone-per-page).
+    
