@@ -15,8 +15,22 @@
  *
  * Resolusi VAST dilakukan di BACKEND (/api/ad-popup-target), bukan fetch
  * langsung dari browser ke magsrv.com — domain iklan sering diblokir oleh
- * ad-blocker/browser mobile di sisi client (gejalanya: tab kosong terbuka
- * tapi tidak pernah terisi URL, tanpa error terlihat). Lihat server.js.
+ * ad-blocker/browser mobile di sisi client.
+ *
+ * PENTING (revisi ke-2): dulu kode ini membuka tab KOSONG dulu (sinkron,
+ * supaya lolos gesture-check browser), baru mengisi URL-nya setelah VAST
+ * selesai di-resolve (async) — dan menutup tab itu kalau ternyata no-fill.
+ * Di HP, window.close() yang dipanggil dari JS pada tab yang browser
+ * anggap "tab asli" (bukan popup window klasik) SERING diabaikan diam-diam
+ * oleh mobile browser (langkah keamanan) — jadi tab kosong itu nyangkut
+ * selamanya di about:blank. Tab kosong seperti itu TIDAK menghasilkan
+ * trafik/pendapatan apa pun karena tidak ada iklan yang benar-benar tampil.
+ *
+ * Solusi: resolve VAST di BACKGROUND begitu halaman dimuat (bukan di
+ * dalam click handler), simpan hasilnya. Baru saat user klik, kalau target
+ * SUDAH didapat, langsung window.open(target) sinkron (satu langkah, tanpa
+ * tab kosong perantara). Kalau belum/tidak ada iklan (no-fill), popup
+ * SAMA SEKALI TIDAK dibuka — tidak ada tab kosong yang mengganggu.
  */
 
 import { backendUrl } from "/js/api.js";
@@ -36,35 +50,28 @@ async function resolveVastTarget() {
   }
 }
 
-async function triggerPopupOnce() {
+function triggerPopupOnce() {
   if (sessionStorage.getItem(SESSION_FLAG)) return;
 
-  const openOnce = (clickEvent) => {
+  // Mulai resolve di background segera saat halaman dimuat — supaya saat
+  // user benar-benar klik, target (kalau ada) sudah siap dan window.open
+  // bisa dipanggil sinkron langsung ke URL final (tanpa tab kosong).
+  let resolvedTarget = null;
+  let resolving = true;
+  resolveVastTarget()
+    .then((target) => { resolvedTarget = target; })
+    .catch(() => { resolvedTarget = null; })
+    .finally(() => { resolving = false; });
+
+  const openOnce = () => {
     if (sessionStorage.getItem(SESSION_FLAG)) return;
-    // Set flag SEBELUM async work selesai — klik kedua yang terjadi saat
-    // fetch masih berlangsung tidak memicu popup ganda.
-    sessionStorage.setItem(SESSION_FLAG, "1");
+    if (resolving) return; // belum selesai resolve — jangan buka apa pun, tunggu klik berikutnya
     document.removeEventListener("click", openOnce, true);
 
-    // PENTING: window.open() HARUS dipanggil sinkron di dalam handler klik
-    // ini (bukan setelah await fetch), kalau tidak browser menganggapnya
-    // bukan lagi hasil aksi user langsung dan popup-nya diblokir diam-diam
-    // (tanpa error apa pun) — inilah sebab popup tidak pernah muncul
-    // sebelumnya walau klik biasa (mis. tombol "Putar") tetap berfungsi
-    // normal. Solusinya: buka tab kosong dulu SINKRON, baru isi URL-nya
-    // setelah VAST selesai di-resolve (async).
-    const popup = window.open("", "_blank", "noopener,noreferrer");
+    if (!resolvedTarget) return; // no-fill — tidak ada popup sama sekali, tidak ada tab kosong
 
-    resolveVastTarget()
-      .then((target) => {
-        if (target && popup && !popup.closed) popup.location.href = target;
-        else if (popup && !popup.closed) popup.close();
-      })
-      .catch(() => {
-        // Gagal resolve (network/CORS/no-fill) — tutup tab kosong, jangan
-        // biarkan tab blank menggantung, dan jangan ganggu UX klik utama.
-        if (popup && !popup.closed) popup.close();
-      });
+    sessionStorage.setItem(SESSION_FLAG, "1");
+    window.open(resolvedTarget, "_blank", "noopener,noreferrer");
   };
 
   document.addEventListener("click", openOnce, true);
