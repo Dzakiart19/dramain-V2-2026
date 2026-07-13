@@ -158,107 +158,14 @@ function persistProgress() {
 // menunggu HLS/MP4 selesai.
 let lastProgressSaveTs = 0;
 video.addEventListener("timeupdate", () => {
-  if (isPlayingAd) return; // jangan simpan posisi iklan sebagai progres drama
   const now = Date.now();
   if (now - lastProgressSaveTs < 5000) return;
   lastProgressSaveTs = now;
   persistProgress();
 });
-video.addEventListener("pause", () => { if (!isPlayingAd) persistProgress(); });
-document.addEventListener("visibilitychange", () => { if (document.hidden && !isPlayingAd) persistProgress(); });
-window.addEventListener("pagehide", () => { if (!isPlayingAd) persistProgress(); });
-
-/* ─── Iklan pre-roll (ExoClick) ───────────────────────────────
- * Diputar inline di dalam player SEBELUM episode dimulai, pada episode
- * 1, 6, 11, 16, ... (setiap kelipatan 5 dari episode 1). isPlayingAd
- * dicek di semua listener video (timeupdate/pause/dst.) supaya progres
- * tontonan drama tidak ikut kesimpan sebagai posisi iklan.
- */
-let isPlayingAd = false;
-
-function shouldShowPrerollAd(ep) {
-  return (ep - 1) % 5 === 0;
-}
-
-/**
- * Tampilkan iklan pre-roll SEBELUM episode dimulai, memakai unit ExoClick
- * "Outstream Video" (zone 5972890) yang SAMA dengan yang sudah terbukti
- * selalu berhasil serve di halaman ini (bukan zone VAST 5972886/5972892 —
- * itu zone khusus popunder/direct-link, fill-nya rendah dan tidak
- * didesain untuk video inline, itu sebabnya sebelumnya sering "kosong").
- *
- * Prosesnya SELALU transparan buat user — tidak pernah diam-diam kosong:
- * - Ada fill  → video iklan tampil, ada tombol Lewati setelah 5 detik.
- * - Tidak ada fill (stok iklan network sedang kosong) → tampil pesan
- *   singkat "Iklan tidak tersedia saat ini" ~1.5 detik, baru lanjut.
- * Dibatasi keras maksimal 20 detik total supaya tidak pernah macet.
- */
-function runPrerollAd() {
-  return new Promise((resolve) => {
-    const wrap = document.querySelector(".player-wrap");
-    const nodes = [];
-    const cleanupAndResolve = () => {
-      clearTimeout(hardTimeout);
-      nodes.forEach((n) => n.remove());
-      isPlayingAd = false;
-      resolve();
-    };
-
-    isPlayingAd = true;
-    playerLoader.style.display = "none";
-
-    const badge = document.createElement("div");
-    badge.className = "ad-preroll-badge";
-    badge.textContent = "Iklan";
-    wrap.appendChild(badge);
-    nodes.push(badge);
-
-    const adBox = document.createElement("div");
-    adBox.className = "ad-preroll-box";
-    adBox.innerHTML = `<ins class="eas6a97888e37" data-zoneid="5972890"></ins>`;
-    wrap.appendChild(adBox);
-    nodes.push(adBox);
-
-    const statusText = document.createElement("p");
-    statusText.className = "ad-preroll-status";
-    statusText.textContent = "Memuat iklan...";
-    wrap.appendChild(statusText);
-    nodes.push(statusText);
-
-    try {
-      (window.AdProvider = window.AdProvider || []).push({ serve: {} });
-    } catch {}
-
-    const hardTimeout = setTimeout(cleanupAndResolve, 20000);
-
-    // Beri jeda ~2.5 detik untuk cek apakah ExoClick berhasil isi <ins>
-    // dengan konten (iframe iklan). Kalau tidak (no-fill), kabari user
-    // secara jelas lalu lanjut — jangan diam-diam skip tanpa penjelasan.
-    setTimeout(() => {
-      const filled = adBox.querySelector("ins")?.childElementCount > 0;
-      if (!filled) {
-        statusText.textContent = "Iklan tidak tersedia saat ini";
-        setTimeout(cleanupAndResolve, 1500);
-        return;
-      }
-
-      statusText.remove();
-      // Tombol lewati muncul setelah 5 detik nonton iklan.
-      setTimeout(() => {
-        if (!isPlayingAd) return;
-        const skipBtn = document.createElement("button");
-        skipBtn.className = "ad-preroll-skip";
-        skipBtn.textContent = "Lewati Iklan ▸";
-        skipBtn.addEventListener("click", cleanupAndResolve);
-        wrap.appendChild(skipBtn);
-        nodes.push(skipBtn);
-      }, 5000);
-
-      // Total tayang iklan ~15 detik sejak konfirmasi terisi.
-      setTimeout(cleanupAndResolve, 15000);
-    }, 2500);
-  });
-}
+video.addEventListener("pause", () => persistProgress());
+document.addEventListener("visibilitychange", () => { if (document.hidden) persistProgress(); });
+window.addEventListener("pagehide", () => persistProgress());
 
 /* ─── Episode ─────────────────────────────────────────────── */
 async function playEpisode(ep) {
@@ -280,13 +187,6 @@ async function playEpisode(ep) {
   if (activeBtn) activeBtn.scrollIntoView({ block: "nearest", behavior: "smooth" });
 
   history.replaceState(null, "", `?provider=${PROVIDER}&id=${ID}&ep=${ep}&platform=${PLATFORM}`);
-
-  if (shouldShowPrerollAd(ep)) {
-    await runPrerollAd(myToken);
-    if (myToken !== playToken) return;
-    video.controls = true;
-    video.muted = false;
-  }
 
   try {
     playerLoader.style.display = "flex";

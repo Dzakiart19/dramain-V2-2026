@@ -1,7 +1,5 @@
 /**
  * Ads (Adsterra) — logic latar belakang yang dimuat di semua halaman.
- * Dipulihkan berdampingan dengan ExoClick (lihat /js/ads.js) — kedua
- * network tayang bersamaan, atas permintaan eksplisit.
  *
  * PENTING: banner Adsterra (atOptions + invoke.js) memakai document.write,
  * yang kalau ditaruh langsung sebagai <script> di body dokumen utama akan
@@ -80,8 +78,6 @@ if (document.readyState === "loading") {
  * sampai tab/sesi browser ditutup. Tidak memanggil preventDefault sehingga
  * tidak mengganggu navigasi/klik normal di situs.
  *
- * Flag sesi BEDA dari punya ExoClick (dramain_exoclick_popup_shown) supaya
- * kedua popup independen — masing-masing tayang sekali per sesi sendiri.
  */
 const DIRECT_LINK_URL = "https://www.effectivecpmnetwork.com/rxcmrgifsa?key=8d07e6464742bfb5835760dcf7a772a4";
 const SESSION_FLAG = "dramain_adsterra_direct_link_shown";

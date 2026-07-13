@@ -65,7 +65,6 @@
 
   <link rel="stylesheet" href="/style.css" />
   <script src="/config.js"></script>
-  <script async type="application/javascript" src="https://a.magsrv.com/ad-provider.js"></script>
 </head>
 <body>
   <header>
@@ -101,15 +100,6 @@
     <section id="homeSection">
       <section id="hero" class="hero hidden"></section>
 
-      <!-- Iklan: banner ExoClick — jeda alami setelah hero -->
-      <div class="ad-slot">
-        <span class="ad-slot-label">Iklan</span>
-        <div class="ad-slot-unit">
-          <ins class="eas6a97888e31" data-zoneid="5972888"></ins>
-          <script>(AdProvider = window.AdProvider || []).push({"serve": {}});</script>
-        </div>
-      </div>
-
       <!-- Iklan: banner Adsterra — leaderboard (desktop) / mobile banner.
            Dirender async oleh /js/ads-adsterra.js (iframe terisolasi, tidak blocking). -->
       <div class="ad-slot ad-slot--728x90 ad-desktop-only">
@@ -122,15 +112,6 @@
       </div>
 
       <div id="rowsRoot"></div>
-
-      <!-- Iklan: banner ExoClick — di akhir halaman -->
-      <div class="ad-slot">
-        <span class="ad-slot-label">Iklan</span>
-        <div class="ad-slot-unit">
-          <ins class="eas6a97888e37" data-zoneid="5972890"></ins>
-          <script>(AdProvider = window.AdProvider || []).push({"serve": {}});</script>
-        </div>
-      </div>
 
       <!-- Iklan: banner Adsterra — rectangle, jeda di akhir halaman -->
       <div class="ad-slot ad-slot--300x250">
@@ -157,9 +138,6 @@
     document.getElementById("modalClose").innerHTML = icon.close();
     document.getElementById("searchBackBtn").innerHTML = icon.back();
   </script>
-
-  <!-- Iklan: trigger popup ExoClick (VAST) sekali per sesi -->
-  <script type="module" src="/js/ads.js"></script>
 
   <!-- Iklan: Adsterra — banner (di atas) + direct-link sekali per sesi -->
   <script type="module" src="/js/ads-adsterra.js"></script>
