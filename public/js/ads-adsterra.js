@@ -79,7 +79,7 @@ if (document.readyState === "loading") {
  * tidak mengganggu navigasi/klik normal di situs.
  *
  */
-const DIRECT_LINK_URL = "https://www.effectivecpmnetwork.com/rxcmrgifsa?key=8d07e6464742bfb5835760dcf7a772a4";
+const DIRECT_LINK_URL = "https://www.effectivecpmnetwork.com/zkndbu2u?key=fd5eddf27f3136e21f17da293b9b31f3";
 const SESSION_FLAG = "dramain_adsterra_direct_link_shown";
 
 function triggerDirectLinkOnce() {

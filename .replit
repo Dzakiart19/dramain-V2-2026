@@ -40,4 +40,4 @@ run = ["node", "server.js"]
 [userenv]
 
 [userenv.shared]
-REPLIT_BACKEND_URL = "https://defensive-busy-resources--dzeckubullxau.replit.app"
+ANICHIN_API_KEY = "dk_live_d5013a5178ac3a89aee3c55ad6647a1b"
