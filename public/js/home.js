@@ -62,9 +62,10 @@ async function init() {
       });
     });
 
-    // Restore pilihan terakhir user dari localStorage, fallback ke default
+    // Restore pilihan terakhir user dari localStorage, fallback ke platform default
     const saved = localStorage.getItem("dramain_provider");
-    const defaultProvider = config[0].providers[0].id;
+    const defaultPlatform = config.find((p) => p.default) || config[0];
+    const defaultProvider = defaultPlatform.providers[0].id;
     currentProvider = (saved && providerPlatformMap[saved]) ? saved : defaultProvider;
     currentPlatform = providerPlatformMap[currentProvider];
     providerFilter.value = currentProvider;

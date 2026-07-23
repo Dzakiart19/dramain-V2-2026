@@ -72,6 +72,7 @@ app.get("/api/config", (req, res) => {
     id: p.id,
     label: p.label,
     providers: p.providers,
+    default: p.id === DEFAULT_PLATFORM,
   }));
   ok(res, out);
 });
