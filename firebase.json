@@ -1,20 +1,6 @@
 {
-  "functions": {
-    "source": ".",
-    "runtime": "nodejs20"
-  },
   "hosting": {
     "public": "public",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [
-      {
-        "source": "/api/**",
-        "function": "app"
-      },
-      {
-        "source": "/hls-proxy",
-        "function": "app"
-      }
-    ]
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
   }
 }
