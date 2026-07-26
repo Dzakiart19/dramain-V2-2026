@@ -77,7 +77,7 @@ Browser → /api/trending/dramabox?platform=dramabox
 ### Parameter `?platform=` wajib di semua API call frontend
 
 Setiap request dari browser ke backend **harus** menyertakan `?platform=ID`.
-Tanpa itu, backend jatuh ke `DEFAULT_PLATFORM` (= `dramabox`) — request
+Tanpa itu, backend jatuh ke `DEFAULT_PLATFORM` (= `goodshort`) — request
 untuk PineDrama akan diproses oleh adapter yang salah.
 
 `home.js` membangun `providerPlatformMap` saat init dari `/api/config`:
@@ -101,7 +101,7 @@ Lalu setiap API call membawa platform yang tepat:
 
 `watch.js` membaca `?platform=` dari URL. Jika tidak ada (link lama),
 ia fallback berdasarkan provider: `provider === "pinedrama"` → `platform = "pinedrama"`,
-sisanya → `"dramabox"`. URL selalu diperbarui via `history.replaceState`
+sisanya → provider id itu sendiri (karena `provider id = platform id`). URL selalu diperbarui via `history.replaceState`
 dengan platform agar reload/share link tetap benar.
 
 ### Dropdown provider di UI

@@ -5,7 +5,7 @@ import { saveProgress, getEntry } from "./history.js";
 
 /* ─── Parse URL params ────────────────────────────────────── */
 const params    = new URLSearchParams(location.search);
-const PROVIDER  = params.get("provider") || "dramabox";
+const PROVIDER  = params.get("provider") || "goodshort";
 const ID        = params.get("id") || "";
 // Jika platform tidak ada di URL, fallback ke provider id (konvensi: provider id = platform id)
 const PLATFORM  = params.get("platform") || PROVIDER;
