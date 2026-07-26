@@ -42,3 +42,4 @@ run = ["node", "server.js"]
 
 [userenv.shared]
 ANICHIN_API_KEY = "dk_live_d5013a5178ac3a89aee3c55ad6647a1b"
+REPLIT_BACKEND = "https://quirky-thunderous-usernames--pat0amyx.replit.app"
