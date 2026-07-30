@@ -2,6 +2,7 @@ import { api } from "./api.js";
 import { esc, showToast, skeletonCards } from "./utils.js";
 import { icon } from "./icons.js";
 import { getHistory, removeEntry } from "./history.js";
+import { triggerDirectLink } from "./ads-adsterra.js";
 
 /* ─── State ───────────────────────────────────────────────── */
 let currentProvider = "";
@@ -127,6 +128,7 @@ function renderHero(d) {
       </div>
     </div>`;
   $("heroPlayBtn").addEventListener("click", () => {
+    triggerDirectLink();
     const plt = providerPlatformMap[d.provider] || currentPlatform;
     window.location.href = `/watch.html?provider=${d.provider}&id=${d.id}&ep=1&platform=${plt}`;
   });
@@ -165,6 +167,7 @@ function bindHistoryCardClicks(root) {
   root.querySelectorAll(".history-card").forEach((card) => {
     card.addEventListener("click", (e) => {
       if (e.target.closest("[data-remove]")) return;
+      triggerDirectLink();
       const { provider, id, platform, ep } = card.dataset;
       window.location.href = `/watch.html?provider=${provider}&id=${id}&ep=${ep}&platform=${platform}`;
     });
@@ -412,9 +415,9 @@ function cardHTML(d) {
 
 function bindCardClicks(root) {
   root.querySelectorAll(".drama-card:not(.is-skeleton)").forEach((card) => {
-    card.addEventListener("click", () => openModal(card.dataset.id, card.dataset.provider));
+    card.addEventListener("click", () => { triggerDirectLink(); openModal(card.dataset.id, card.dataset.provider); });
     card.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") openModal(card.dataset.id, card.dataset.provider);
+      if (e.key === "Enter") { triggerDirectLink(); openModal(card.dataset.id, card.dataset.provider); }
     });
   });
 }
@@ -460,6 +463,7 @@ async function openModal(id, provider) {
       </div>`;
 
     $("watchNowBtn").addEventListener("click", () => {
+      triggerDirectLink();
       window.location.href = `/watch.html?provider=${provider}&id=${id}&ep=1&platform=${platform}`;
     });
   } catch (e) {

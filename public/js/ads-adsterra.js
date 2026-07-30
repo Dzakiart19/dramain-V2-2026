@@ -73,31 +73,25 @@ if (document.readyState === "loading") {
 }
 
 /**
- * "Direct Link" Adsterra — dipicu sekali per SESI (bukan setiap klik) pada
- * interaksi klik pertama pengguna, dibuka di tab baru, lalu tidak lagi
- * sampai tab/sesi browser ditutup. Tidak memanggil preventDefault sehingga
- * tidak mengganggu navigasi/klik normal di situs.
+ * "Direct Link" Adsterra — dipicu setiap klik navigasi bermakna (pilih drama,
+ * pilih episode, tonton sekarang, dll.). window.open() HARUS dipanggil
+ * synchronous di dalam click handler agar popup blocker tidak membatalkannya.
  *
+ * Cooldown 3 detik mencegah double-fire jika user klik dua elemen beruntun
+ * dalam satu "intent" yang sama (mis. klik kartu lalu langsung "Tonton").
  */
 const DIRECT_LINK_URL = "https://www.effectivecpmnetwork.com/zkndbu2u?key=fd5eddf27f3136e21f17da293b9b31f3";
-const SESSION_FLAG = "dramain_adsterra_direct_link_shown";
+const DIRECT_LINK_COOLDOWN_MS = 3000;
 
-function triggerDirectLinkOnce() {
-  if (sessionStorage.getItem(SESSION_FLAG)) return;
+let _lastDirectLinkTs = 0;
 
-  const openOnce = () => {
-    if (sessionStorage.getItem(SESSION_FLAG)) return;
-    sessionStorage.setItem(SESSION_FLAG, "1");
+export function triggerDirectLink() {
+  try {
+    const now = Date.now();
+    if (now - _lastDirectLinkTs < DIRECT_LINK_COOLDOWN_MS) return;
+    _lastDirectLinkTs = now;
     window.open(DIRECT_LINK_URL, "_blank", "noopener,noreferrer");
-    document.removeEventListener("click", openOnce, true);
-  };
-
-  document.addEventListener("click", openOnce, true);
-}
-
-try {
-  triggerDirectLinkOnce();
-} catch {
-  // sessionStorage bisa gagal di mode privat ketat — abaikan, jangan sampai
-  // memblokir render halaman.
+  } catch {
+    // Abaikan — gagal buka popup tidak boleh memblokir navigasi utama.
+  }
 }

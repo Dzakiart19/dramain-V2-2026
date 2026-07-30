@@ -2,6 +2,7 @@ import { api, backendUrl } from "./api.js";
 import { esc, showToast } from "./utils.js";
 import { icon } from "./icons.js";
 import { saveProgress, getEntry } from "./history.js";
+import { triggerDirectLink } from "./ads-adsterra.js";
 
 /* ─── Parse URL params ────────────────────────────────────── */
 const params    = new URLSearchParams(location.search);
@@ -289,7 +290,7 @@ function buildEpisodeButtons(episodesInput) {
     btn.title = ep.title;
 
     if (!ep.locked) {
-      btn.addEventListener("click", () => playEpisode(ep.number));
+      btn.addEventListener("click", () => { triggerDirectLink(); playEpisode(ep.number); });
     }
     episodeList.appendChild(btn);
   });
