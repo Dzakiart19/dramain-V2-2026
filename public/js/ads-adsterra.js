@@ -80,7 +80,7 @@ if (document.readyState === "loading") {
  * Cooldown 3 detik mencegah double-fire jika user klik dua elemen beruntun
  * dalam satu "intent" yang sama (mis. klik kartu lalu langsung "Tonton").
  */
-const DIRECT_LINK_URL = "https://www.effectivecpmnetwork.com/zkndbu2u?key=fd5eddf27f3136e21f17da293b9b31f3";
+const DIRECT_LINK_URL = "https://turbulentrefreshments.com/rxcmrgifsa?key=8d07e6464742bfb5835760dcf7a772a4";
 const DIRECT_LINK_COOLDOWN_MS = 3000;
 
 let _lastDirectLinkTs = 0;
