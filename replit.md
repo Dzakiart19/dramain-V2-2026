@@ -7,6 +7,7 @@ Web app streaming drama pendek, dengan UI bergaya Netflix
 - **Backend**: Node.js + Express
 - **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js
 - **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort, DramaBite, DramaWave) atau MP4 native (PineDrama, MoboReels)
+- **Deployment**: Firebase (Hosting untuk `public/` + Cloud Functions untuk Express backend). **Replit hanya dipakai sebagai environment development backend** — preview/test lokal via workflow `node server.js`.
 
 ## Struktur Folder
 
@@ -232,7 +233,9 @@ otomatis terbuang saat melebihi batas.
 | MoboReels | `moboreels.js` | — | `priv-api.anichin.bio` | MP4 |
 | DramaWave | `dramawave.js` | — | `priv-api.anichin.bio` | HLS |
 
-Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (disimpan sebagai **Replit environment variable**, bukan Secret — sudah tersedia di shared env).
+Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY`.
+- **Di Replit** (dev): disimpan sebagai environment variable (shared env) — sudah tersedia, tidak perlu setup ulang.
+- **Di Firebase** (prod): disetel via Secret Manager (`firebase functions:secrets:set ANICHIN_API_KEY`).
 
 > **Catatan ShortMax**: endpoint upstream `/shortmax/detail` salah menandai
 > mayoritas episode sebagai `locked:true`. Endpoint `allepisode`/`episode`
