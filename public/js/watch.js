@@ -2,7 +2,7 @@ import { api, backendUrl } from "./api.js";
 import { esc, showToast } from "./utils.js";
 import { icon } from "./icons.js";
 import { saveProgress, getEntry } from "./history.js";
-import { triggerDirectLink } from "./ads-adsterra.js";
+import { triggerDirectLink } from "./ads.js";
 
 /* ─── Parse URL params ────────────────────────────────────── */
 const params    = new URLSearchParams(location.search);

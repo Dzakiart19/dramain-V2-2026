@@ -8,4 +8,4 @@
 - [MoboReels adapter notes](moboreels-adapter.md) — MP4 platform; tidak ada allepisode terpisah (pakai detail); videoUrl mengandung CDN sign params (expire, jangan cache); duration normalisasi bug-prone (gunakan explicit null-check bukan ??+ternary)
 
 - [ExoClick VAST popup timing](exoclick-vast-popup-timing.md) — window.open() must fire synchronously in the click handler before any await, or popup blockers silently kill it.
-- [Adsterra ads setup](adsterra-ads-setup.md) — semua key/domain banner aktif + titik trigger directlink (termasuk video click & fullscreenchange).
+- [Ads setup](adsterra-ads-setup.md) — semua key/domain banner aktif + titik trigger directlink; file ads.js (jangan sebut nama jaringan iklan di website).

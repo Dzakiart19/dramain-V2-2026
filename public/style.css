@@ -32,7 +32,7 @@ a { color: inherit; text-decoration: none; }
 button { font-family: inherit; }
 
 /* ─── Slot iklan ─────────────────────────────────────────────
-   Kontainer generik untuk unit iklan pihak ketiga (Adsterra).
+   Kontainer generik untuk unit iklan pihak ketiga.
    min-height mencegah lompatan layout (CLS) sebelum skrip iklan
    selesai merender unit di dalam .ad-slot-unit. */
 .ad-slot {
@@ -48,7 +48,7 @@ button { font-family: inherit; }
   max-width: 100%; overflow: hidden; min-height: 50px;
 }
 
-/* ─── Iklan (Adsterra) — ukuran slot tetap per breakpoint ────────
+/* ─── Iklan — ukuran slot tetap per breakpoint ────────
    overflow-x: auto (bukan hidden) di sini — kalau lebar iframe iklan
    sedikit lebih besar dari viewport sangat sempit, geser di dalam slot
    iklan sendiri, bukan memaksa seluruh halaman scroll horizontal. */

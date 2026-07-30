@@ -1,6 +1,6 @@
 ---
-name: Adsterra ads setup
-description: Semua unit iklan Adsterra aktif — domain, key per slot, dan titik-titik trigger directlink.
+name: Ads setup
+description: Semua unit iklan aktif — domain, key per slot, titik-titik trigger directlink. File utama: public/js/ads.js (dulu ads-adsterra.js, direname karena policy jaringan iklan).
 ---
 
 ## Domain invoke.js
@@ -43,5 +43,8 @@ Cooldown: **3 detik** (mencegah double-fire satu intent). `window.open()` dipang
 
 **Why:** `window.open()` harus sinkron di dalam click handler — jika ada `await` sebelumnya atau dipanggil dari event non-gesture (seperti `pause`, `visibilitychange`), popup blocker akan membunuhnya secara diam-diam.
 
+## Nama file
+`public/js/ads.js` (sebelumnya `ads-adsterra.js` — direname karena jaringan iklan melarang penyebutan nama mereka di website).
+
 ## Tidak ada banner auto-refresh
-Banner dirender sekali saat halaman load. Tidak ada `setInterval` refresh — Adsterra mengelola rotasi dari sisi mereka via iframe.
+Banner dirender sekali saat halaman load. Tidak ada `setInterval` refresh — jaringan iklan mengelola rotasi dari sisi mereka via iframe.

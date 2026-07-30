@@ -1,7 +1,7 @@
 /**
- * Ads (Adsterra) — logic latar belakang yang dimuat di semua halaman.
+ * Ads — logic latar belakang yang dimuat di semua halaman.
  *
- * PENTING: banner Adsterra (atOptions + invoke.js) memakai document.write,
+ * PENTING: banner (atOptions + invoke.js) memakai document.write,
  * yang kalau ditaruh langsung sebagai <script> di body dokumen utama akan
  * BLOCKING parsing HTML pada titik itu. Supaya render halaman tidak pernah
  * terhambat oleh iklan (dan supaya aman kalau upstream iklan lambat/gagal),
@@ -73,7 +73,7 @@ if (document.readyState === "loading") {
 }
 
 /**
- * "Direct Link" Adsterra — dipicu setiap klik navigasi bermakna (pilih drama,
+ * "Direct Link" — dipicu setiap klik navigasi bermakna (pilih drama,
  * pilih episode, tonton sekarang, dll.). window.open() HARUS dipanggil
  * synchronous di dalam click handler agar popup blocker tidak membatalkannya.
  *

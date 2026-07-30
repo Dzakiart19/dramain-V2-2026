@@ -2,7 +2,7 @@ import { api } from "./api.js";
 import { esc, showToast, skeletonCards } from "./utils.js";
 import { icon } from "./icons.js";
 import { getHistory, removeEntry } from "./history.js";
-import { triggerDirectLink } from "./ads-adsterra.js";
+import { triggerDirectLink } from "./ads.js";
 
 /* ─── State ───────────────────────────────────────────────── */
 let currentProvider = "";
