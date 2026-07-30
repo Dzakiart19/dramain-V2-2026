@@ -87,6 +87,14 @@ function loadStream(videoUrl, resumeSeconds = 0) {
       maxMaxBufferLength: 60,
       startLevel: -1,
       abrEwmaDefaultEstimate: 1000000,
+      // Timeout lebih panjang untuk akomodasi proxy backend Replit
+      // (manifest + segmen di-relay server-side, perlu waktu lebih)
+      manifestLoadingTimeOut:  20000,
+      manifestLoadingMaxRetry: 2,
+      levelLoadingTimeOut:     20000,
+      levelLoadingMaxRetry:    2,
+      fragLoadingTimeOut:      30000,
+      fragLoadingMaxRetry:     3,
     });
     hls.loadSource(videoUrl);
     hls.attachMedia(video);
@@ -95,12 +103,30 @@ function loadStream(videoUrl, resumeSeconds = 0) {
       applyResumeSeek(resumeSeconds);
       video.play().catch(() => showOpenExternal());
     });
+
+    // Recovery dengan batas maksimum — cegah loop retry infinite.
+    let networkRecoveryCount = 0;
+    let mediaRecoveryDone    = false;
     hls.on(Hls.Events.ERROR, (_, data) => {
       if (!data.fatal) return;
       console.error("HLS fatal:", data.type, data.details);
       if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        if (networkRecoveryCount >= 3) {
+          // Sudah 3x retry → buka tab baru sebagai fallback
+          showOpenExternal();
+          return;
+        }
+        networkRecoveryCount++;
         showToast("Koneksi terputus, mencoba lagi...", 3000);
-        setTimeout(() => hls && hls.startLoad(), 2000);
+        // Exponential backoff: 2s, 4s, 6s
+        setTimeout(() => hls && hls.startLoad(), 2000 * networkRecoveryCount);
+      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        if (!mediaRecoveryDone) {
+          mediaRecoveryDone = true;
+          hls.recoverMediaError();
+        } else {
+          showOpenExternal();
+        }
       } else {
         showOpenExternal();
       }
