@@ -175,13 +175,14 @@ function bindHistoryCardClicks(root) {
     removeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       removeEntry(card.dataset.provider, card.dataset.id);
-      renderContinueRow();
+      renderContinueRow(currentPlatform);
     });
   });
 }
 
-function renderContinueRow() {
-  const list = getHistory();
+function renderContinueRow(platform) {
+  const all = getHistory();
+  const list = platform ? all.filter((h) => h.platform === platform) : all;
   let section = document.getElementById("row-continue");
 
   if (!list.length) {
@@ -318,10 +319,8 @@ async function loadHome(provider, platform) {
   const myToken = ++homeToken;
   rowsRoot.innerHTML = "";
 
-  // Baris "Lanjutkan Menonton" independen dari provider/platform yang aktif
-  // (menampilkan riwayat semua platform sekaligus) — render duluan karena
-  // sumbernya localStorage, tidak perlu fetch.
-  renderContinueRow();
+  // Baris "Lanjutkan Menonton" — hanya tampilkan riwayat platform yang aktif.
+  renderContinueRow(platform);
 
   try {
     try {
