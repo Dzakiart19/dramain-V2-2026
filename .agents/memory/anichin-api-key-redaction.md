@@ -3,7 +3,7 @@ name: Anichin API real upstream + key redaction
 description: Real DramaBox data source is priv-api.anichin.bio (not shortdramavid.xyz), auth via api_key query param; error paths must redact secrets before reaching clients.
 ---
 
-The actual upstream for the "shortdramavid" DramaBox provider is `https://priv-api.anichin.bio/api/{provider}/{action}`, authenticated via an `api_key` query param (stored as the `ANICHIN_API_KEY` Replit secret). shortdramavid.xyz is just a thin wrapper around this API with no added value and its own rate limiting.
+The actual upstream for the "shortdramavid" DramaBox provider is `https://priv-api.anichin.bio/api/{provider}/{action}`, authenticated via an `api_key` query param (stored as the `ANICHIN_API_KEY` Replit **env var** — shared environment, not a Secret). shortdramavid.xyz is just a thin wrapper around this API with no added value and its own rate limiting.
 
 **Why:** the user provided the real base URL and key directly; probing confirmed shortdramavid.xyz's endpoints (languages/allepisode/subtitles/hls) 404 to a SPA shell there but work fine against priv-api.anichin.bio directly. The "watch" action name doesn't exist on the real API — the correct action is "hls", which returns a raw .m3u8 manifest (not JSON).
 

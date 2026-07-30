@@ -221,7 +221,7 @@ otomatis terbuang saat melebihi batas.
 | MoboReels | `moboreels.js` | — | `priv-api.anichin.bio` | MP4 |
 | DramaWave | `dramawave.js` | — | `priv-api.anichin.bio` | HLS |
 
-Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (Replit Secret).
+Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY` (disimpan sebagai **Replit environment variable**, bukan Secret — sudah tersedia di shared env).
 
 > **Catatan ShortMax**: endpoint upstream `/shortmax/detail` salah menandai
 > mayoritas episode sebagai `locked:true`. Endpoint `allepisode`/`episode`
@@ -463,7 +463,8 @@ Frontend (`public/`), routes (`server.js`), dan `lib/fetcher.js` **tidak perlu d
   npx firebase login
   npx firebase deploy --only functions,hosting --project dramain-aja
   ```
-  Secret `ANICHIN_API_KEY` di Firebase disetel via Secret Manager:
+  `ANICHIN_API_KEY` di Replit disimpan sebagai **env var** (bukan Secret).
+  Di Firebase, disetel via Secret Manager:
   ```
   npx firebase functions:secrets:set ANICHIN_API_KEY --project dramain-aja
   ```
