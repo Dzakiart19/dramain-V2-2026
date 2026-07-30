@@ -51,7 +51,7 @@ function renderBannerAd(container) {
   const html =
     `<!DOCTYPE html><html><head><style>body{margin:0;padding:0;overflow:hidden;background:transparent}</style></head><body>` +
     `<script>atOptions=${JSON.stringify({ key, format: "iframe", height, width, params: {} })};<\/script>` +
-    `<script src="https://www.highperformanceformat.com/${key}/invoke.js"><\/script>` +
+    `<script src="https://turbulentrefreshments.com/${key}/invoke.js"><\/script>` +
     `</body></html>`;
 
   // srcdoc (bukan document.write via contentWindow) — konten awal iframe
