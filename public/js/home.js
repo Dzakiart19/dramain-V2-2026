@@ -14,16 +14,16 @@ let homeLoading = false;
 // Token increment per loadHome() — request dengan token stale diabaikan saat selesai.
 let homeToken = 0;
 
-/* ─── Platform visuals (warna + inisial untuk logo bulat) ────── */
+/* ─── Platform visuals (logo asli dari App Store) ────────────── */
 const PLATFORM_VISUALS = {
-  dramabox:  { color: "#E50914", initial: "D" },
-  pinedrama: { color: "#22C55E", initial: "P" },
-  goodshort: { color: "#3B82F6", initial: "G" },
-  shortmax:  { color: "#A855F7", initial: "S" },
-  reelshort: { color: "#F97316", initial: "R" },
-  dramabite: { color: "#EC4899", initial: "B" },
-  moboreels: { color: "#14B8A6", initial: "M" },
-  dramawave: { color: "#06B6D4", initial: "W" },
+  dramabox:  { img: "/img/platforms/dramabox.jpg"  },
+  pinedrama: { img: "/img/platforms/pinedrama.png" },
+  goodshort: { img: "/img/platforms/goodshort.jpg" },
+  shortmax:  { img: "/img/platforms/shortmax.jpg"  },
+  reelshort: { img: "/img/platforms/reelshort.jpg" },
+  dramabite: { img: "/img/platforms/dramabite.jpg" },
+  moboreels: { img: "/img/platforms/moboreels.jpg" },
+  dramawave: { img: "/img/platforms/dramawave.jpg" },
 };
 
 /* ─── DOM ─────────────────────────────────────────────────── */
@@ -70,12 +70,15 @@ async function init() {
     config.forEach((platform) => {
       platform.providers.forEach((p) => {
         providerPlatformMap[p.id] = platform.id;
-        const vis = PLATFORM_VISUALS[p.id] || { color: "#666", initial: p.label[0].toUpperCase() };
+        const vis = PLATFORM_VISUALS[p.id] || {};
+        const logoHtml = vis.img
+          ? `<span class="platform-logo"><img src="${vis.img}" alt="${esc(p.label)}" loading="lazy"></span>`
+          : `<span class="platform-logo" style="background:#555;font-size:0.7rem;font-weight:800;color:#fff">${p.label[0]}</span>`;
         const btn = document.createElement("button");
         btn.className = "platform-picker__item";
         btn.dataset.provider = p.id;
         btn.setAttribute("role", "option");
-        btn.innerHTML = `<span class="platform-logo" style="background:${vis.color}">${vis.initial}</span><span class="platform-picker__item-label">${esc(p.label)}</span><span class="platform-picker__dot"></span>`;
+        btn.innerHTML = `${logoHtml}<span class="platform-picker__item-label">${esc(p.label)}</span><span class="platform-picker__dot"></span>`;
         btn.addEventListener("click", () => selectProvider(p.id));
         platformPickerDropdown.appendChild(btn);
       });
@@ -482,11 +485,16 @@ function requestCloseModal() {
 /* ─── Events ──────────────────────────────────────────────── */
 /* ─── Platform Picker helpers ─────────────────────────────── */
 function setActivePicker(providerId) {
-  const vis = PLATFORM_VISUALS[providerId] || { color: "#666", initial: providerId[0].toUpperCase() };
+  const vis = PLATFORM_VISUALS[providerId] || {};
   const activeBtn = platformPickerDropdown.querySelector(`[data-provider="${providerId}"]`);
   const label = activeBtn?.querySelector(".platform-picker__item-label")?.textContent || providerId;
-  platformPickerLogo.style.background = vis.color;
-  platformPickerLogo.textContent = vis.initial;
+  if (vis.img) {
+    platformPickerLogo.innerHTML = `<img src="${vis.img}" alt="${label}" style="width:100%;height:100%;object-fit:cover;border-radius:7px">`;
+    platformPickerLogo.style.background = "";
+  } else {
+    platformPickerLogo.innerHTML = label[0];
+    platformPickerLogo.style.background = "#555";
+  }
   platformPickerLabel.textContent = label;
   platformPickerDropdown.querySelectorAll(".platform-picker__item").forEach((b) => {
     b.classList.toggle("is-active", b.dataset.provider === providerId);
