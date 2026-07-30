@@ -168,6 +168,15 @@ video.addEventListener("pause", () => persistProgress());
 document.addEventListener("visibilitychange", () => { if (document.hidden) persistProgress(); });
 window.addEventListener("pagehide", () => persistProgress());
 
+// ─── Directlink iklan pada interaksi layar video ──────────────
+// Klik area video (pause/play) adalah user gesture sinkron — popup tidak diblok.
+video.addEventListener("click", () => triggerDirectLink());
+// Fullscreen: bukan click langsung, browser tertentu bisa memblok popup-nya —
+// ditangani graceful (triggerDirectLink punya try/catch internal).
+document.addEventListener("fullscreenchange", () => {
+  if (document.fullscreenElement === video) triggerDirectLink();
+});
+
 /* ─── Episode ─────────────────────────────────────────────── */
 async function playEpisode(ep) {
   if (ep < 1) return;
