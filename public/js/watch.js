@@ -54,7 +54,7 @@ function showOpenExternal() {
       <button class="btn-primary" id="openExternalBtn">Buka di Tab Baru</button>
     </div>`;
   playerLoader.style.display = "flex";
-  $("openExternalBtn").addEventListener("click", () => window.open(location.href, "_blank"));
+  $("openExternalBtn").addEventListener("click", () => window.open(location.href, "_blank", "noopener"));
 }
 
 function showCompleted() {
@@ -348,7 +348,9 @@ function setMeta(nameOrProp, content) {
  * Berguna agar tautan yang dibagikan menampilkan judul + cover yang benar.
  */
 function updateMetaTags(drama) {
-  const BASE = "https://dramain-aja.web.app";
+  // Gunakan origin aktual agar canonical & fallback og:image benar
+  // baik di production (dramain-aja.web.app) maupun di dev/Replit preview.
+  const BASE = window.location.origin;
   const title = `${drama.title} — Dramain Aja`;
   const desc  = drama.description
     ? drama.description.slice(0, 155) + (drama.description.length > 155 ? "…" : "")

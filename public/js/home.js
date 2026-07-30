@@ -115,9 +115,13 @@ async function loadNotifications() {
 function renderHero(d) {
   if (!d) { hero.classList.add("hidden"); return; }
   hero.classList.remove("hidden");
-  hero.style.setProperty("--hero-image", `url("${d.cover}")`);
+  // Validasi cover hanya boleh http/https sebelum dipakai di CSS custom property
+  // (mencegah injeksi CSS jika upstream API mengembalikan nilai tak terduga).
+  const safeCover = d.cover && /^https?:\/\//.test(d.cover) ? d.cover : "";
+  if (safeCover) hero.style.setProperty("--hero-image", `url("${safeCover}")`);
+  else hero.style.removeProperty("--hero-image");
   hero.innerHTML = `
-    <div class="hero-backdrop" style="background-image:url('${esc(d.cover)}')"></div>
+    <div class="hero-backdrop" style="${safeCover ? `background-image:url('${esc(safeCover)}')` : ""}"></div>
     <div class="hero-scrim"></div>
     <div class="hero-content">
       <h1>${esc(d.title)}</h1>

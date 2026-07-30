@@ -4,18 +4,16 @@ Web app streaming drama pendek, dengan UI bergaya Netflix
 (dark, ikon monokrom, baris kategori horizontal, auto-play episode).
 
 ## Stack
-- **Backend**: Node.js + Express
-- **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js
+- **Backend**: Node.js + Express — berjalan di Replit (deploy via tombol Deploy)
+- **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js — file statis di-host di Firebase Hosting
 - **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort, DramaBite, DramaWave) atau MP4 native (PineDrama, MoboReels)
-- **Deployment**: **Firebase Hosting** melayani file statis `public/` (HTML/CSS/JS). **Backend Express tetap berjalan di Replit** (deployed via tombol Deploy Replit) — `deploy.sh` meng-inject URL Replit ke `public/config.js` sebagai `window.BACKEND_URL` sebelum push ke Firebase. Preview/test lokal via workflow `node server.js`.
+- **Deployment**: Split — Firebase Hosting untuk `public/` (statis), Replit Deployment untuk API backend. `deploy.sh` meng-inject URL Replit ke `public/config.js` sebagai `window.BACKEND_URL` sebelum push ke Firebase. Preview/test lokal via workflow `node server.js`.
 
 ## Struktur Folder
 
 ```
 /
 ├── server.js              # Express server — routes API backend (platform-agnostic)
-├── index.js               # Wrapper Firebase Cloud Functions (TIDAK dipakai deployment aktif —
-│                          #   arsitektur saat ini: backend di Replit, bukan Firebase Functions)
 ├── lib/
 │   ├── config.js          # Daftar platform & provider aktif + DEFAULT_PLATFORM
 │   ├── fetcher.js         # HTTP client dengan retry, timeout & redact secret
@@ -50,9 +48,9 @@ Web app streaming drama pendek, dengan UI bergaya Netflix
 │       ├── home.js           # Logika halaman home: hero, baris kategori, search, modal
 │       └── watch.js          # Logika halaman player: episode, auto-play, HLS/MP4
 ├── deploy.sh              # Script deploy ke Firebase Hosting: patch config.js → deploy → restore
-├── firebase.json          # Firebase Hosting config — hanya melayani public/ (tanpa rewrites)
+├── firebase.json          # Firebase Hosting config — melayani public/ saja (tanpa rewrites/functions)
 ├── .firebaserc            # Firebase project id: dramain-aja
-└── package.json
+└── package.json           # Dependencies: express, node-fetch (tidak ada firebase-admin/functions)
 ```
 
 ## Arsitektur Platform & Provider
@@ -239,8 +237,8 @@ otomatis terbuang saat melebihi batas.
 | DramaWave | `dramawave.js` | — | `priv-api.anichin.bio` | HLS |
 
 Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY`.
-- **Di Replit** (dev): disimpan sebagai environment variable (shared env) — sudah tersedia, tidak perlu setup ulang.
-- **Di Firebase** (prod): disetel via Secret Manager (`firebase functions:secrets:set ANICHIN_API_KEY`).
+- **Di Replit dev**: disimpan sebagai environment variable (shared env) — sudah tersedia, tidak perlu setup ulang.
+- **Di Replit deployment (prod)**: env var yang sama otomatis tersedia di deployment Replit — tidak perlu konfigurasi tambahan.
 
 > **Catatan ShortMax**: endpoint upstream `/shortmax/detail` salah menandai
 > mayoritas episode sebagai `locked:true`. Endpoint `allepisode`/`episode`
@@ -513,11 +511,6 @@ Klik tombol **Deploy** di Replit. Catat URL deployment (mis. `https://dramain-aj
    - Patch `public/config.js` → isi `window.BACKEND_URL` dengan URL Replit
    - `npx firebase deploy --only hosting --project dramain-aja`
    - Restore `public/config.js` ke placeholder (via `trap EXIT`)
-
-**Catatan `index.js`**: file ini adalah wrapper Firebase Cloud Functions yang pernah dibuat
-sebagai opsi deployment alternatif (backend di Firebase Functions, bukan Replit). Saat ini
-**tidak dipakai** — `deploy.sh` hanya deploy `--only hosting`. Jangan deploy functions kecuali
-arsitektur memang sengaja dipindah ke Firebase Functions.
 
 ## User Preferences
 - Tidak menampilkan konten iklan dari evacuateenclose.com

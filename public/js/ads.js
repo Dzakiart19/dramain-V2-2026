@@ -44,9 +44,9 @@ function renderBannerAd(container) {
   iframe.title = "Iklan";
   // Sandbox TANPA "allow-same-origin": iframe mendapat origin buram (opaque)
   // yang terisolasi penuh dari origin situs utama — script iklan pihak
-  // ketiga TIDAK BISA membaca/mengubah DOM halaman utama atau memanggil API
-  // parent, walau tetap bisa merender diri & menangani klik (redirect iklan).
-  iframe.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin");
+  // ketiga TIDAK BISA membaca/mengubah DOM halaman utama, localStorage,
+  // atau cookie, walau tetap bisa merender diri & menangani klik (redirect iklan).
+  iframe.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
 
   const html =
     `<!DOCTYPE html><html><head><style>body{margin:0;padding:0;overflow:hidden;background:transparent}</style></head><body>` +
