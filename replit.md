@@ -36,6 +36,10 @@ Web app streaming drama pendek, dengan UI bergaya Netflix
 │   ├── robots.txt            # Disallow /watch.html (konten SPA dinamis, tak ada nilai SEO statis)
 │   ├── sitemap.xml           # Sitemap: hanya homepage; /watch.html dikecualikan by-design
 │   ├── config.js             # window.BACKEND_URL — kosong di Replit, diisi deploy.sh saat Firebase
+│   ├── img/
+│   │   └── platforms/        # Logo asli tiap platform (dari App Store, ~8–24 KB per file)
+│   │       ├── dramabox.jpg  ├── pinedrama.png ├── goodshort.jpg ├── shortmax.jpg
+│   │       ├── reelshort.jpg ├── dramabite.jpg ├── moboreels.jpg └── dramawave.jpg
 │   └── js/
 │       ├── api.js            # Wrapper fetch API ke backend (backendUrl + api helper)
 │       ├── icons.js          # Semua ikon monokrom (inline SVG) — tidak ada emoji
@@ -77,7 +81,7 @@ Browser → /api/trending/dramabox?platform=dramabox
 ### Parameter `?platform=` wajib di semua API call frontend
 
 Setiap request dari browser ke backend **harus** menyertakan `?platform=ID`.
-Tanpa itu, backend jatuh ke `DEFAULT_PLATFORM` (= `goodshort`) — request
+Tanpa itu, backend jatuh ke `DEFAULT_PLATFORM` (= `dramabox`) — request
 untuk PineDrama akan diproses oleh adapter yang salah.
 
 `home.js` membangun `providerPlatformMap` saat init dari `/api/config`:
@@ -104,36 +108,42 @@ ia fallback berdasarkan provider: `provider === "pinedrama"` → `platform = "pi
 sisanya → provider id itu sendiri (karena `provider id = platform id`). URL selalu diperbarui via `history.replaceState`
 dengan platform agar reload/share link tetap benar.
 
-### Dropdown provider di UI
+### Platform picker di UI (custom dropdown dengan logo)
 
 `/api/config` mengembalikan **semua** platform + provider. `home.js` di `init()`
-iterasi seluruhnya dan mengisi satu `<select>` gabungan:
+iterasi seluruhnya dan mengisi custom dropdown (`#platformPickerDropdown`) — bukan
+native `<select>` lagi. Setiap item berisi logo asli platform (dari App Store,
+disimpan di `public/img/platforms/`) + nama platform.
 
 ```
-[ DramaBox ▾ ]   ← default (jika belum pernah ganti)
-[ PineDrama ]
-[ GoodShort ]
-[ ShortMax ]
-[ ReelShort ]
-[ DramaBite ]
-[ MoboReels ]
-[ DramaWave ]
+[ 🟥 DramaBox ▾ ]   ← tombol header, klik buka panel
+┌─────────────────┐
+│ 🟥 DramaBox   ● │  ← aktif (titik merah)
+│ 🟩 PineDrama    │
+│ 🟦 GoodShort    │
+│ 🟪 ShortMax     │
+│ 🟧 ReelShort    │
+│ 🩷 DramaBite    │
+│ 🩵 MoboReels    │
+│ 🔵 DramaWave    │
+└─────────────────┘
 ```
 
-Saat user ganti pilihan, `currentProvider` dan `currentPlatform` diperbarui,
-lalu **disimpan ke `localStorage`** (`dramain_provider`). Saat halaman dibuka
-lagi (misalnya setelah kembali dari halaman watch), pilihan terakhir dipulihkan
-dari `localStorage` — user tidak balik ke DramaBox secara paksa.
+File logo: `public/img/platforms/{id}.jpg|png` (diunduh dari App Store saat setup).
+Map visual di `home.js` → `PLATFORM_VISUALS` (fallback: kotak abu + inisial jika
+file tidak ada).
+
+Saat user memilih platform, `selectProvider(id)` dipanggil via `click` event
+(lebih reliabel dari `change` pada native select di mobile). `currentProvider` dan
+`currentPlatform` diperbarui, disimpan ke `localStorage` (`dramain_provider`), lalu
+`setActivePicker()` memperbarui tombol header. Halaman reload via `loadHome()`.
 
 Urutan restore di `init()`:
 1. Baca `dramain_provider` dari `localStorage`.
 2. Validasi bahwa value itu ada di `providerPlatformMap` (antisipasi platform
    dihapus dari config di masa depan).
-3. Jika valid → pakai, set `providerFilter.value` sesuai.
+3. Jika valid → pakai dan panggil `setActivePicker(id)`.
 4. Jika tidak valid / kosong → fallback ke `config[0].providers[0]`.
-
-Di mobile, dropdown ini **terlihat** (tidak disembunyikan). Ukuran font
-diperkecil sedikit (`0.78rem`, padding `6px 8px`) agar muat di header.
 
 ### Persistensi state di localStorage
 
@@ -179,12 +189,13 @@ di antaranya.
    HLS `loadedmetadata`, atau MP4 `canplay`). Episode BEDA dari yang
    tersimpan selalu mulai dari 0 (tidak resume nyasar ke episode lain).
 
-**Alur baca** (`home.js`): `renderContinueRow()` dipanggil di awal
+**Alur baca** (`home.js`): `renderContinueRow(platform)` dipanggil di awal
 `loadHome()` (sebelum fetch apapun, karena sumbernya `localStorage`) dan
-selalu dipasang ulang di posisi PALING ATAS `rowsRoot` — independen dari
-provider/platform yang sedang aktif, jadi riwayat semua platform tetap
-tampil bersamaan tanpa perlu ganti-ganti dropdown. Baris disembunyikan
-otomatis kalau riwayat kosong. Tiap kartu punya badge platform, badge
+selalu dipasang ulang di posisi PALING ATAS `rowsRoot`. History di-filter:
+**hanya entri dengan `h.platform === platform` yang tampil** — sesuai platform
+aktif di picker. Ganti platform → baris langsung menampilkan riwayat platform
+yang baru dipilih (tidak bocor antar-platform). Baris disembunyikan otomatis
+kalau riwayat untuk platform itu kosong. Tiap kartu punya badge platform, badge
 episode (`Ep X/Y`), progress bar tipis (posisi/durasi), dan tombol hapus
 (×) yang memanggil `removeEntry()` tanpa memicu navigasi (`stopPropagation`).
 
@@ -450,7 +461,10 @@ Ringkas:
    di `server.js` — jika tidak ditambahkan, segmen video tidak bisa diproxy.
    Jika `hlsManifestUrl` adapter bersifat async (butuh fetch upstream sebelum mengembalikan URL),
    pastikan dipanggil dengan `await` — ini sudah dilakukan di `server.js` secara global.
-5. Restart server — dropdown di UI otomatis memunculkan platform baru.
+5. Tambahkan logo platform baru ke `public/img/platforms/{id}.jpg` (unduh dari
+   App Store / Play Store). Tambahkan entry `{id}: { img: "/img/platforms/{id}.jpg" }`
+   ke `PLATFORM_VISUALS` di `public/js/home.js`.
+6. Restart server — platform picker di UI otomatis memunculkan platform baru.
 6. Smoke-test tiap endpoint dengan `?platform={id-baru}`.
 
 Frontend (`public/`), routes (`server.js`), dan `lib/fetcher.js` **tidak perlu diubah**.
