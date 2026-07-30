@@ -72,9 +72,13 @@
       <a href="/" class="logo">Dramain<span>Aja</span></a>
 
       <div class="header-right">
-        <div class="provider-select-wrap">
-          <select id="providerFilter">
-          </select>
+        <div class="platform-picker" id="platformPicker">
+          <button class="platform-picker__btn" id="platformPickerBtn" aria-haspopup="listbox" aria-expanded="false">
+            <span class="platform-logo" id="platformPickerLogo"></span>
+            <span class="platform-picker__label" id="platformPickerLabel">Loading…</span>
+            <svg class="platform-picker__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="platform-picker__dropdown hidden" id="platformPickerDropdown" role="listbox"></div>
         </div>
 
         <div class="search-wrap" id="searchBar">

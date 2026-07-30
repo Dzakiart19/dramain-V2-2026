@@ -14,14 +14,29 @@ let homeLoading = false;
 // Token increment per loadHome() — request dengan token stale diabaikan saat selesai.
 let homeToken = 0;
 
+/* ─── Platform visuals (warna + inisial untuk logo bulat) ────── */
+const PLATFORM_VISUALS = {
+  dramabox:  { color: "#E50914", initial: "D" },
+  pinedrama: { color: "#22C55E", initial: "P" },
+  goodshort: { color: "#3B82F6", initial: "G" },
+  shortmax:  { color: "#A855F7", initial: "S" },
+  reelshort: { color: "#F97316", initial: "R" },
+  dramabite: { color: "#EC4899", initial: "B" },
+  moboreels: { color: "#14B8A6", initial: "M" },
+  dramawave: { color: "#06B6D4", initial: "W" },
+};
+
 /* ─── DOM ─────────────────────────────────────────────────── */
 const $ = (id) => document.getElementById(id);
-const header        = document.querySelector("header");
-const searchToggle  = $("searchToggle");
-const searchBar     = $("searchBar");
-const searchInput   = $("searchInput");
-const searchClose   = $("searchClose");
-const providerFilter = $("providerFilter");
+const header              = document.querySelector("header");
+const searchToggle        = $("searchToggle");
+const searchBar           = $("searchBar");
+const searchInput         = $("searchInput");
+const searchClose         = $("searchClose");
+const platformPickerBtn      = $("platformPickerBtn");
+const platformPickerLabel    = $("platformPickerLabel");
+const platformPickerLogo     = $("platformPickerLogo");
+const platformPickerDropdown = $("platformPickerDropdown");
 const searchResults = $("searchResults");
 const searchSection = $("searchSection");
 const homeSection   = $("homeSection");
@@ -51,14 +66,18 @@ async function init() {
   try {
     const config = await api("/api/config");
 
-    // Kumpulkan semua provider dari semua platform ke dalam satu dropdown
+    // Kumpulkan semua provider dari semua platform ke dalam custom picker
     config.forEach((platform) => {
       platform.providers.forEach((p) => {
         providerPlatformMap[p.id] = platform.id;
-        const opt = document.createElement("option");
-        opt.value = p.id;
-        opt.textContent = p.label;
-        providerFilter.appendChild(opt);
+        const vis = PLATFORM_VISUALS[p.id] || { color: "#666", initial: p.label[0].toUpperCase() };
+        const btn = document.createElement("button");
+        btn.className = "platform-picker__item";
+        btn.dataset.provider = p.id;
+        btn.setAttribute("role", "option");
+        btn.innerHTML = `<span class="platform-logo" style="background:${vis.color}">${vis.initial}</span><span class="platform-picker__item-label">${esc(p.label)}</span><span class="platform-picker__dot"></span>`;
+        btn.addEventListener("click", () => selectProvider(p.id));
+        platformPickerDropdown.appendChild(btn);
       });
     });
 
@@ -68,7 +87,7 @@ async function init() {
     const defaultProvider = defaultPlatform.providers[0].id;
     currentProvider = (saved && providerPlatformMap[saved]) ? saved : defaultProvider;
     currentPlatform = providerPlatformMap[currentProvider];
-    providerFilter.value = currentProvider;
+    setActivePicker(currentProvider);
     loadNotifications();
     loadHome(currentProvider, currentPlatform);
   } catch (e) {
@@ -329,7 +348,7 @@ async function loadHome(provider, platform) {
 async function doSearch(q) {
   q = q.trim();
   if (!q) return;
-  const provider = providerFilter.value || currentProvider;
+  const provider = currentProvider;
   const platform = providerPlatformMap[provider] || currentPlatform;
 
   homeSection.classList.add("hidden");
@@ -461,15 +480,48 @@ function requestCloseModal() {
 }
 
 /* ─── Events ──────────────────────────────────────────────── */
-providerFilter.addEventListener("change", () => {
-  const selected = providerFilter.value;
-  if (!selected) return;
-  currentProvider = selected;
-  currentPlatform = providerPlatformMap[selected] || currentPlatform;
+/* ─── Platform Picker helpers ─────────────────────────────── */
+function setActivePicker(providerId) {
+  const vis = PLATFORM_VISUALS[providerId] || { color: "#666", initial: providerId[0].toUpperCase() };
+  const activeBtn = platformPickerDropdown.querySelector(`[data-provider="${providerId}"]`);
+  const label = activeBtn?.querySelector(".platform-picker__item-label")?.textContent || providerId;
+  platformPickerLogo.style.background = vis.color;
+  platformPickerLogo.textContent = vis.initial;
+  platformPickerLabel.textContent = label;
+  platformPickerDropdown.querySelectorAll(".platform-picker__item").forEach((b) => {
+    b.classList.toggle("is-active", b.dataset.provider === providerId);
+  });
+}
+
+function selectProvider(providerId) {
+  closePicker();
+  if (providerId === currentProvider) return;
+  currentProvider = providerId;
+  currentPlatform = providerPlatformMap[providerId] || currentPlatform;
   localStorage.setItem("dramain_provider", currentProvider);
+  setActivePicker(providerId);
   foryouPage = 1;
   loadHome(currentProvider, currentPlatform);
+}
+
+function openPicker() {
+  platformPickerDropdown.classList.remove("hidden");
+  platformPickerBtn.classList.add("is-open");
+  platformPickerBtn.setAttribute("aria-expanded", "true");
+}
+
+function closePicker() {
+  platformPickerDropdown.classList.add("hidden");
+  platformPickerBtn.classList.remove("is-open");
+  platformPickerBtn.setAttribute("aria-expanded", "false");
+}
+
+platformPickerBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  platformPickerDropdown.classList.contains("hidden") ? openPicker() : closePicker();
 });
+platformPickerDropdown.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => closePicker());
 
 searchToggle.addEventListener("click", () => {
   searchBar.classList.add("is-open");
