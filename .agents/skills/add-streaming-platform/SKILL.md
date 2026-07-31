@@ -115,6 +115,14 @@ Jangan tebak dari dokumentasi:
 Jika platform butuh secret (API key, token), gunakan environment-secrets flow —
 **tidak pernah hardcode di adapter file**.
 
+> **Perbedaan auth per platform**: sebagian besar platform menyisipkan API key
+> sebagai `api_key=KEY` di query string via `buildUrl()`. Platform DrамаNova
+> memakai **header HTTP** `X-API-Key: KEY` — dikirim lewat `options.headers` di
+> `fetchJSON()`. Cek dokumentasi upstream sebelum memilih pola mana yang dipakai;
+> keduanya sudah didukung oleh `lib/fetcher.js` (`options.headers` di-merge
+> dengan `DEFAULT_HEADERS`). Untuk platform header-auth, URL tidak mengandung
+> secret sehingga log error aman tanpa perlu redact tambahan.
+
 ---
 
 ## Step 2 — Buat adapter file
@@ -310,3 +318,4 @@ Untuk platform MP4 (video langsung ke browser), ini tidak diperlukan.
 |----------|---------|-------------|---------|
 | DramaBox | `lib/providers/shortdramavid.js` | HLS | Referensi utama — baca end-to-end sebelum mulai |
 | PineDrama | `lib/providers/pinedrama.js` | MP4 | Contoh platform tanpa HLS, fallback graceful untuk vip/dubindo/subtitles |
+| DrамаNova | `lib/providers/dramanova.js` | MP4 | Contoh auth via **header** `X-API-Key` (bukan query param); tidak ada `/allepisode`, pakai `detail.episodes`; logo `.webp` di `public/img/platforms/` |

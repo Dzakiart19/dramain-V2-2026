@@ -9,3 +9,4 @@
 
 - [ExoClick VAST popup timing](exoclick-vast-popup-timing.md) — window.open() must fire synchronously in the click handler before any await, or popup blockers silently kill it.
 - [Ads setup](adsterra-ads-setup.md) — semua key/domain banner aktif + titik trigger directlink; file ads.js (jangan sebut nama jaringan iklan di website).
+- [DrамаNova adapter notes](dramanova-adapter.md) — auth via X-API-Key header (bukan query param); tidak ada /allepisode; MP4 BytePlus CDN; logo .webp

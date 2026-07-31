@@ -6,7 +6,7 @@ Web app streaming drama pendek, dengan UI bergaya Netflix
 ## Stack
 - **Backend**: Node.js + Express — berjalan di Replit (deploy via tombol Deploy)
 - **Frontend**: HTML/CSS/Vanilla JS (ES modules) + HLS.js — file statis di-host di Firebase Hosting
-- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort, DramaBite, DramaWave) atau MP4 native (PineDrama, MoboReels)
+- **Video**: HLS (.m3u8) via HLS.js (DramaBox, GoodShort, ShortMax, ReelShort, DramaBite, DramaWave) atau MP4 native (PineDrama, MoboReels, DrамаNova)
 - **Deployment**: Split — Firebase Hosting untuk `public/` (statis), Replit Deployment untuk API backend. `deploy.sh` meng-inject URL Replit ke `public/config.js` sebagai `window.BACKEND_URL` sebelum push ke Firebase. Preview/test lokal via workflow `node server.js`.
 
 ## Struktur Folder
@@ -25,7 +25,8 @@ Web app streaming drama pendek, dengan UI bergaya Netflix
 │       ├── reelshort.js      # Adapter ReelShort (upstream: priv-api.anichin.bio, HLS, segmen relatif)
 │       ├── dramabite.js      # Adapter DramaBite (upstream: priv-api.anichin.bio, HLS, manifest langsung tanpa redirect)
 │       ├── moboreels.js      # Adapter MoboReels (upstream: priv-api.anichin.bio, MP4, tanpa allepisode terpisah)
-│       └── dramawave.js      # Adapter DramaWave (upstream: priv-api.anichin.bio, HLS, episode list dari /detail)
+│       ├── dramawave.js      # Adapter DramaWave (upstream: priv-api.anichin.bio, HLS, episode list dari /detail)
+│       └── dramanova.js      # Adapter DrамаNova (upstream: priv-api.anichin.bio, MP4 BytePlus CDN, auth via X-API-Key header)
 ├── public/                # ← Seluruh folder ini yang di-deploy ke Firebase Hosting (statis)
 │   ├── index.html            # Halaman home (hero + baris kategori + pencarian)
 │   ├── watch.html            # Halaman player video (auto-play episode berikutnya)
@@ -39,8 +40,9 @@ Web app streaming drama pendek, dengan UI bergaya Netflix
 │   ├── config.js             # window.BACKEND_URL — placeholder di repo, diisi deploy.sh saat deploy
 │   ├── img/
 │   │   └── platforms/        # Logo asli tiap platform (dari App Store, ~8–24 KB per file)
-│   │       ├── dramabox.jpg  ├── pinedrama.png ├── goodshort.jpg ├── shortmax.jpg
-│   │       ├── reelshort.jpg ├── dramabite.jpg ├── moboreels.jpg └── dramawave.jpg
+│   │       ├── dramabox.jpg  ├── pinedrama.png  ├── goodshort.jpg ├── shortmax.jpg
+│   │       ├── reelshort.jpg ├── dramabite.jpg  ├── moboreels.jpg ├── dramawave.jpg
+│   │       └── dramanova.webp
 │   └── js/
 │       ├── api.js            # Wrapper fetch API ke backend (backendUrl + api helper)
 │       ├── icons.js          # Semua ikon monokrom (inline SVG) — tidak ada emoji
@@ -61,8 +63,8 @@ Proyek ini membedakan dua level:
 
 | Level | Contoh | Dikelola di |
 |-------|--------|-------------|
-| **Platform** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite`, `moboreels`, `dramawave` | `lib/config.js` → `PLATFORMS` |
-| **Provider** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite`, `moboreels`, `dramawave` | tiap platform punya array `providers` |
+| **Platform** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite`, `moboreels`, `dramawave`, `dramanova` | `lib/config.js` → `PLATFORMS` |
+| **Provider** | `dramabox`, `pinedrama`, `goodshort`, `shortmax`, `reelshort`, `dramabite`, `moboreels`, `dramawave`, `dramanova` | tiap platform punya array `providers` |
 
 Satu platform dipetakan ke satu adapter (`adapterPath`). Satu adapter bisa
 melayani beberapa provider jika upstream API-nya mendukung path-segment berbeda.
@@ -99,6 +101,7 @@ providerPlatformMap["reelshort"] = "reelshort"
 providerPlatformMap["dramabite"] = "dramabite"
 providerPlatformMap["moboreels"] = "moboreels"
 providerPlatformMap["dramawave"] = "dramawave"
+providerPlatformMap["dramanova"] = "dramanova"
 ```
 
 Lalu setiap API call membawa platform yang tepat:
@@ -130,6 +133,7 @@ disimpan di `public/img/platforms/`) + nama platform.
 │ 🩷 DramaBite    │
 │ 🩵 MoboReels    │
 │ 🔵 DramaWave    │
+│ 🟤 DrамаNova    │
 └─────────────────┘
 ```
 
@@ -153,7 +157,7 @@ Urutan restore di `init()`:
 
 | Key | Nilai | Dipakai oleh |
 |-----|-------|-------------|
-| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"` / `"reelshort"` / `"dramabite"` / `"moboreels"` / `"dramawave"`) | `home.js` — restore platform saat kembali ke home |
+| `dramain_provider` | provider id terakhir dipilih (`"dramabox"` / `"pinedrama"` / `"goodshort"` / `"shortmax"` / `"reelshort"` / `"dramabite"` / `"moboreels"` / `"dramawave"` / `"dramanova"`) | `home.js` — restore platform saat kembali ke home |
 | `dramain_autoplay` | `"on"` / `"off"` | `watch.js` — ingat preferensi putar otomatis |
 | `dramain_history` | array riwayat tontonan (lihat bagian "Riwayat Tontonan") | `history.js` — dipakai bersama `watch.js` (tulis) & `home.js` (baca/render) |
 
@@ -218,6 +222,7 @@ otomatis terbuang saat melebihi batas.
 | DramaBite | HLS `.m3u8` | HLS.js (`loadStream`) — TIDAK ada endpoint redirect terpisah, `/dramabite/episode` langsung mengembalikan URL manifest absolut, tapi segmen di dalamnya tetap path RELATIF — di-resolve server-side dengan mekanisme generik yang sama dengan ReelShort |
 | MoboReels | MP4 (CDN sign params) | `<video src>` native (`loadMp4`) — URL mengandung param CDN sign (`expire`, dst), jangan pernah di-cache |
 | DramaWave | HLS `.m3u8` | HLS.js (`loadStream`) — episode list & subtitle sudah lengkap di `/detail` (tidak perlu endpoint `allepisode` terpisah), `videoUrl` per episode diambil fresh dari `/episode`, tetap diproxy lewat `/api/hls-stream` walau tidak mengandung `api_key` |
+| DrамаNova | MP4 BytePlus CDN | `<video src>` native (`loadMp4`) — URL mengandung CDN `auth_key` (untuk browser, bukan API key), dikirim langsung ke client; auth ke upstream via header `X-API-Key` bukan query param |
 
 `watch.js` membaca `data.streamType` dari `/api/watch`:
 - `streamType === "mp4"` → `loadMp4(data.videoUrl)` (URL langsung)
@@ -235,6 +240,7 @@ otomatis terbuang saat melebihi batas.
 | DramaBite | `dramabite.js` | — | `priv-api.anichin.bio` | HLS (manifest langsung, segmen relatif) |
 | MoboReels | `moboreels.js` | — | `priv-api.anichin.bio` | MP4 |
 | DramaWave | `dramawave.js` | — | `priv-api.anichin.bio` | HLS |
+| DrамаNova | `dramanova.js` | — | `priv-api.anichin.bio` | MP4 (BytePlus CDN) |
 
 Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY`.
 - **Di Replit dev**: disimpan sebagai environment variable (shared env) — sudah tersedia, tidak perlu setup ulang.
@@ -291,6 +297,16 @@ Semuanya memakai API key yang sama: env var `ANICHIN_API_KEY`.
 > `notifications` di upstream — semuanya fallback graceful (`[]` atau reuse
 > `foryou`). Episode out-of-range dibalas 500 oleh upstream (bukan 200 silent),
 > ditangkap via try/catch di `checkEpisodeLock()` jadi `locked:true`.
+
+> **Catatan DrамаNova**: platform MP4 — auth ke upstream menggunakan **header `X-API-Key`**,
+> bukan query param `api_key` seperti platform lain. Jangan ubah ke query param.
+> Tidak ada endpoint `/allepisode` terpisah — `allepisode()` mengambil data dari
+> `/detail` (episodes[]: `{ number, title, locked }`). Tidak ada `/hls`, `/vip`,
+> `/dubindo`, `/subtitles`, `/notifications` di upstream; semua fallback graceful.
+> `videoUrl` dari `/episode` adalah URL MP4 CDN BytePlus (`ps2.bytedrama.com`)
+> dengan signed `auth_key` — ini CDN key untuk browser (bukan API key server),
+> aman dikirim langsung ke client via `streamType:"mp4"`. Karena MP4, platform
+> ini TIDAK memakai `/hls-proxy` dan tidak perlu entry di `HLS_ALLOWED_HOSTS`.
 
 ## API Endpoints Backend
 

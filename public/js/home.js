@@ -25,6 +25,7 @@ const PLATFORM_VISUALS = {
   dramabite: { img: "/img/platforms/dramabite.jpg" },
   moboreels: { img: "/img/platforms/moboreels.jpg" },
   dramawave: { img: "/img/platforms/dramawave.jpg" },
+  dramanova: { img: "/img/platforms/dramanova.webp" },
 };
 
 /* ─── DOM ─────────────────────────────────────────────────── */
