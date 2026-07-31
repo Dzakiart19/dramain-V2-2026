@@ -7,6 +7,8 @@ import { triggerDirectLink } from "./ads.js";
 /* ─── State ───────────────────────────────────────────────── */
 let currentProvider = "";
 let currentPlatform = "";
+let currentLang = "";          // "" = gunakan default adapter; diisi saat user pilih bahasa
+let _langList = [];            // cache daftar bahasa platform aktif
 // map: provider id → platform id (diisi saat init dari /api/config)
 const providerPlatformMap = {};
 let foryouPage = 1;
@@ -39,6 +41,10 @@ const platformPickerBtn      = $("platformPickerBtn");
 const platformPickerLabel    = $("platformPickerLabel");
 const platformPickerLogo     = $("platformPickerLogo");
 const platformPickerDropdown = $("platformPickerDropdown");
+const langPicker             = $("langPicker");
+const langPickerBtn          = $("langPickerBtn");
+const langPickerLabel        = $("langPickerLabel");
+const langPickerDropdown     = $("langPickerDropdown");
 const searchResults = $("searchResults");
 const searchSection = $("searchSection");
 const homeSection   = $("homeSection");
@@ -55,12 +61,13 @@ const searchBackBtn  = $("searchBackBtn");
  * Setiap kategori terpisah & mandiri: judul, endpoint, dan cara
  * memuatnya sendiri-sendiri. Menambah kategori baru = menambah satu
  * entri di array ini, tidak perlu ubah logika render.
+ * Parameter lang opsional — kosong = adapter pakai default-nya sendiri.
  */
 const ROWS = [
-  { id: "trending", title: "Trending", endpoint: (p, plt) => `/api/trending/${p}?platform=${plt}` },
-  { id: "latest",   title: "Terbaru",   endpoint: (p, plt) => `/api/latest/${p}?platform=${plt}` },
-  { id: "dubindo",  title: "Sulih Suara Indonesia", endpoint: (p, plt) => `/api/dubindo/${p}?platform=${plt}` },
-  { id: "vip",      title: "VIP",       endpoint: (p, plt) => `/api/vip/${p}?platform=${plt}` },
+  { id: "trending", title: "Trending",              endpoint: (p, plt, lg) => `/api/trending/${p}?platform=${plt}${lg ? `&lang=${encodeURIComponent(lg)}` : ""}` },
+  { id: "latest",   title: "Terbaru",               endpoint: (p, plt, lg) => `/api/latest/${p}?platform=${plt}${lg ? `&lang=${encodeURIComponent(lg)}` : ""}` },
+  { id: "dubindo",  title: "Sulih Suara Indonesia", endpoint: (p, plt, lg) => `/api/dubindo/${p}?platform=${plt}${lg ? `&lang=${encodeURIComponent(lg)}` : ""}` },
+  { id: "vip",      title: "VIP",                   endpoint: (p, plt, lg) => `/api/vip/${p}?platform=${plt}${lg ? `&lang=${encodeURIComponent(lg)}` : ""}` },
 ];
 
 /* ─── Init ────────────────────────────────────────────────── */

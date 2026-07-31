@@ -77,13 +77,13 @@ app.get("/api/config", (req, res) => {
   ok(res, out);
 });
 
-// GET /api/search?q=QUERY&provider=PROVIDER&platform=PLATFORM
+// GET /api/search?q=QUERY&provider=PROVIDER&platform=PLATFORM&lang=LANG
 app.get("/api/search", async (req, res) => {
-  const { q, provider, platform = DEFAULT_PLATFORM } = req.query;
+  const { q, provider, platform = DEFAULT_PLATFORM, lang } = req.query;
   if (!q) return fail(res, "Parameter q wajib diisi", 400);
   try {
     const adapter = getAdapter(platform, provider || null);
-    const results = await adapter.search(q, provider || null);
+    const results = await adapter.search(q, provider || null, lang);
     ok(res, results);
   } catch (err) {
     fail(res, err);
@@ -376,91 +376,91 @@ app.get("/hls-proxy", async (req, res) => {
   }
 });
 
-// GET /api/browse/:provider?platform=PLATFORM — trending + latest gabungan
+// GET /api/browse/:provider?platform=PLATFORM&lang=LANG — trending + latest gabungan
 app.get("/api/browse/:provider", async (req, res) => {
   const { provider } = req.params;
-  const { platform = DEFAULT_PLATFORM } = req.query;
+  const { platform = DEFAULT_PLATFORM, lang } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const data = await adapter.browse(provider);
+    const data = await adapter.browse(provider, lang);
     ok(res, data);
   } catch (err) {
     fail(res, err);
   }
 });
 
-// GET /api/trending/:provider?platform=PLATFORM
+// GET /api/trending/:provider?platform=PLATFORM&lang=LANG
 app.get("/api/trending/:provider", async (req, res) => {
   const { provider } = req.params;
-  const { platform = DEFAULT_PLATFORM } = req.query;
+  const { platform = DEFAULT_PLATFORM, lang } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const data = await adapter.trending(provider);
+    const data = await adapter.trending(provider, lang);
     ok(res, data);
   } catch (err) {
     fail(res, err);
   }
 });
 
-// GET /api/latest/:provider?platform=PLATFORM
+// GET /api/latest/:provider?platform=PLATFORM&lang=LANG
 app.get("/api/latest/:provider", async (req, res) => {
   const { provider } = req.params;
-  const { platform = DEFAULT_PLATFORM } = req.query;
+  const { platform = DEFAULT_PLATFORM, lang } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const data = await adapter.latest(provider);
+    const data = await adapter.latest(provider, lang);
     ok(res, data);
   } catch (err) {
     fail(res, err);
   }
 });
 
-// GET /api/more/:provider?q=QUERY&platform=PLATFORM — cari lebih banyak via search
+// GET /api/more/:provider?q=QUERY&platform=PLATFORM&lang=LANG — cari lebih banyak via search
 app.get("/api/more/:provider", async (req, res) => {
   const { provider } = req.params;
-  const { q = "love", platform = DEFAULT_PLATFORM } = req.query;
+  const { q = "love", platform = DEFAULT_PLATFORM, lang } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const data = await adapter.search(q, provider);
+    const data = await adapter.search(q, provider, lang);
     ok(res, data);
   } catch (err) {
     fail(res, err);
   }
 });
 
-// GET /api/vip/:provider?platform=PLATFORM
+// GET /api/vip/:provider?platform=PLATFORM&lang=LANG
 app.get("/api/vip/:provider", async (req, res) => {
   const { provider } = req.params;
-  const { platform = DEFAULT_PLATFORM } = req.query;
+  const { platform = DEFAULT_PLATFORM, lang } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const data = await adapter.vip(provider);
+    const data = await adapter.vip(provider, lang);
     ok(res, data);
   } catch (err) {
     fail(res, err);
   }
 });
 
-// GET /api/dubindo/:provider?platform=PLATFORM
+// GET /api/dubindo/:provider?platform=PLATFORM&lang=LANG
 app.get("/api/dubindo/:provider", async (req, res) => {
   const { provider } = req.params;
-  const { platform = DEFAULT_PLATFORM } = req.query;
+  const { platform = DEFAULT_PLATFORM, lang } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const data = await adapter.dubindo(provider);
+    const data = await adapter.dubindo(provider, lang);
     ok(res, data);
   } catch (err) {
     fail(res, err);
   }
 });
 
-// GET /api/foryou/:provider?page=1&platform=PLATFORM
+// GET /api/foryou/:provider?page=1&platform=PLATFORM&lang=LANG
 app.get("/api/foryou/:provider", async (req, res) => {
   const { provider } = req.params;
-  const { page = 1, platform = DEFAULT_PLATFORM } = req.query;
+  const { page = 1, platform = DEFAULT_PLATFORM, lang } = req.query;
   try {
     const adapter = getAdapter(platform, provider);
-    const data = await adapter.foryou(provider, Number(page));
+    const data = await adapter.foryou(provider, Number(page), lang);
     ok(res, data);
   } catch (err) {
     fail(res, err);

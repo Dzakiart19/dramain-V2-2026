@@ -103,6 +103,15 @@
           <div class="platform-picker__dropdown hidden" id="platformPickerDropdown" role="listbox"></div>
         </div>
 
+        <div class="lang-picker hidden" id="langPicker">
+          <button class="lang-picker__btn" id="langPickerBtn" aria-haspopup="listbox" aria-expanded="false">
+            <svg class="lang-picker__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span id="langPickerLabel">Semua</span>
+            <svg class="platform-picker__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="lang-picker__dropdown hidden" id="langPickerDropdown" role="listbox"></div>
+        </div>
+
         <div class="search-wrap" id="searchBar">
           <input id="searchInput" type="text" placeholder="Cari judul drama..." autocomplete="off" />
           <button id="searchClose" class="icon-btn" aria-label="Tutup pencarian"></button>
