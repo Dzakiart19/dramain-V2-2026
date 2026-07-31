@@ -616,6 +616,13 @@ platformPickerBtn.addEventListener("click", (e) => {
 platformPickerDropdown.addEventListener("click", (e) => e.stopPropagation());
 document.addEventListener("click", () => closePicker());
 
+langPickerBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  langPickerDropdown.classList.contains("hidden") ? openLangPicker() : closeLangPicker();
+});
+langPickerDropdown.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => closeLangPicker());
+
 searchToggle.addEventListener("click", () => {
   searchBar.classList.add("is-open");
   searchInput.focus();
