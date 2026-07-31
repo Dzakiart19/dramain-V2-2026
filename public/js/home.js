@@ -101,6 +101,7 @@ async function init() {
     currentPlatform = providerPlatformMap[currentProvider];
     setActivePicker(currentProvider);
     loadNotifications();
+    await loadLanguages(currentProvider);
     loadHome(currentProvider, currentPlatform);
   } catch (e) {
     showToast("Gagal memuat konfigurasi: " + e.message);
@@ -263,7 +264,7 @@ async function loadRow(row, provider, platform, token) {
   track.innerHTML = skeletonCards(8);
 
   try {
-    const items = await api(row.endpoint(provider, platform));
+    const items = await api(row.endpoint(provider, platform, currentLang));
     // Abaikan response jika token sudah tidak berlaku (provider diganti saat request masih berjalan)
     if (token !== undefined && token !== homeToken) return;
     if (!items?.length) {
@@ -309,7 +310,7 @@ async function loadForYou(provider, append = false) {
   moreBtn.disabled = true;
 
   try {
-    const data = await api(`/api/foryou/${provider}?page=${foryouPage}&platform=${currentPlatform}`);
+    const data = await api(`/api/foryou/${provider}?page=${foryouPage}&platform=${currentPlatform}${currentLang ? `&lang=${encodeURIComponent(currentLang)}` : ""}`);
     const html = data.items.map(cardHTML).join("");
     if (append) grid.insertAdjacentHTML("beforeend", html);
     else grid.innerHTML = html;
@@ -339,7 +340,7 @@ async function loadHome(provider, platform) {
 
   try {
     try {
-      const trending = await api(`/api/trending/${provider}?platform=${platform}`);
+      const trending = await api(`/api/trending/${provider}?platform=${platform}${currentLang ? `&lang=${encodeURIComponent(currentLang)}` : ""}`);
       // Abaikan jika provider sudah diganti lagi sebelum request ini selesai
       if (myToken !== homeToken) return;
       renderHero(trending?.[0]);
@@ -383,7 +384,7 @@ async function doSearch(q) {
   history[historyMethod]({ view: "search", q }, "", `?q=${encodeURIComponent(q)}`);
 
   try {
-    const results = await api(`/api/search?q=${encodeURIComponent(q)}&provider=${provider}&platform=${platform}`);
+    const results = await api(`/api/search?q=${encodeURIComponent(q)}&provider=${provider}&platform=${platform}${currentLang ? `&lang=${encodeURIComponent(currentLang)}` : ""}`);
     if (!results?.length) {
       searchResults.innerHTML = emptyState("Tidak ada hasil", "Coba kata kunci lain");
       return;
@@ -497,6 +498,74 @@ function requestCloseModal() {
   else closeModal();
 }
 
+/* ─── Lang Picker helpers ─────────────────────────────────── */
+async function loadLanguages(provider) {
+  try {
+    const data = await api(`/api/languages/${provider}?platform=${currentPlatform}`);
+    _langList = Array.isArray(data.languages) ? data.languages : [];
+    const hasLangs = _langList.length > 1;
+    langPicker.classList.toggle("hidden", !hasLangs);
+    if (!hasLangs) { currentLang = ""; return; }
+
+    langPickerDropdown.innerHTML = "";
+
+    // Opsi "Semua" (tanpa filter bahasa)
+    const allBtn = document.createElement("button");
+    allBtn.className = "lang-picker__item" + (!currentLang ? " is-active" : "");
+    allBtn.dataset.lang = "";
+    allBtn.innerHTML = `<span>Semua</span><span class="lang-picker__dot"></span>`;
+    allBtn.addEventListener("click", () => selectLang(""));
+    langPickerDropdown.appendChild(allBtn);
+
+    // Divider
+    const div = document.createElement("div");
+    div.className = "lang-picker__divider";
+    langPickerDropdown.appendChild(div);
+
+    _langList.forEach((l) => {
+      const btn = document.createElement("button");
+      btn.className = "lang-picker__item" + (currentLang === l.code ? " is-active" : "");
+      btn.dataset.lang = l.code;
+      btn.innerHTML = `<span>${esc(l.name || l.code)}</span><span class="lang-picker__dot"></span>`;
+      btn.addEventListener("click", () => selectLang(l.code));
+      langPickerDropdown.appendChild(btn);
+    });
+
+    setActiveLangPicker(currentLang);
+  } catch {
+    langPicker.classList.add("hidden");
+  }
+}
+
+function setActiveLangPicker(code) {
+  const label = !code ? "Semua" : (_langList.find((l) => l.code === code)?.name || code);
+  langPickerLabel.textContent = label;
+  langPickerDropdown.querySelectorAll(".lang-picker__item").forEach((b) => {
+    b.classList.toggle("is-active", b.dataset.lang === code);
+  });
+}
+
+function selectLang(code) {
+  closeLangPicker();
+  if (code === currentLang) return;
+  currentLang = code;
+  setActiveLangPicker(code);
+  foryouPage = 1;
+  loadHome(currentProvider, currentPlatform);
+}
+
+function openLangPicker() {
+  langPickerDropdown.classList.remove("hidden");
+  langPickerBtn.classList.add("is-open");
+  langPickerBtn.setAttribute("aria-expanded", "true");
+}
+
+function closeLangPicker() {
+  langPickerDropdown.classList.add("hidden");
+  langPickerBtn.classList.remove("is-open");
+  langPickerBtn.setAttribute("aria-expanded", "false");
+}
+
 /* ─── Events ──────────────────────────────────────────────── */
 /* ─── Platform Picker helpers ─────────────────────────────── */
 function setActivePicker(providerId) {
@@ -523,8 +592,9 @@ function selectProvider(providerId) {
   currentPlatform = providerPlatformMap[providerId] || currentPlatform;
   localStorage.setItem("dramain_provider", currentProvider);
   setActivePicker(providerId);
+  currentLang = "";
   foryouPage = 1;
-  loadHome(currentProvider, currentPlatform);
+  loadLanguages(currentProvider).then(() => loadHome(currentProvider, currentPlatform));
 }
 
 function openPicker() {
